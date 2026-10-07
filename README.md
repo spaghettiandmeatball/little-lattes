@@ -25,7 +25,7 @@ Open the local URL printed by Vite. `npm run build` checks TypeScript and create
 
 `src/fluid.ts` maintains ping-pong GPU textures: encoded surface velocity and visible foam concentration. It performs bounded semi-Lagrangian advection, limited diffusion, momentum injection and stylized height-dependent foam deposition. This is an art-directed approximation, with no incompressibility pressure solve. The unsigned-byte field favors portability; thin strokes and low-velocity quantization need visual testing across GPUs.
 
-`src/model.ts` owns the volume ledger and validated presets. `src/scene.ts` owns the orthographic cup, pitcher, stream and coordinate mapping. `src/main.ts` coordinates pointer IDs, fixed 60 Hz steps, UI, storage and optional synthesized sound. Catch-up is capped at 0.1 seconds; focus loss cancels pouring. Render pixel ratio is capped at 2.
+`src/model.ts` owns the volume ledger and validated presets. `src/scene.ts` owns the full-screen café, perspective camera, cup, pitcher, stream and ray-to-surface coordinate mapping. `src/main.ts` coordinates pointer IDs, fixed 60 Hz steps, UI, storage and optional synthesized sound. Catch-up is capped at 0.1 seconds; focus loss cancels pouring. Render pixel ratio is capped at 2.
 
 The first scene uses procedural placeholders. For later GLB replacements use world units: coffee radius 1, coffee plane z=0, camera facing -z. Cup/pitcher asset loading and formal pivot/spout metadata are still future work.
 
@@ -36,7 +36,7 @@ The first scene uses procedural placeholders. For later GLB replacements use wor
 3. Add recorded achievable target fields, fixed-resolution scoring, six puzzles and local progress.
 4. Add endless orders, then the two obstacle puzzles.
 
-Puzzle scoring, endless orders, obstacles, attempt recording and a presentation camera are not implemented yet. No real-device performance claim is made. Local settings only; no analytics.
+Puzzle scoring, endless orders, obstacles, attempt recording are not implemented yet. No real-device performance claim is made. Local settings only; no analytics.
 
 ## GitHub
 
@@ -55,3 +55,8 @@ No remote has been configured or content published. A license should be chosen b
 - [GPU Gems: Fast Fluid Dynamics](https://developer.nvidia.com/gpugems/gpugems/part-vi-beyond-triangles/chapter-38-fast-fluid-dynamics-simulation-gpu)
 
 See `docs/build-plan.md` for the original proposal and staged acceptance gates.
+
+## Café world pass
+
+The canvas now fills the viewport with a 3D wood counter, a full ceramic cup, café fixtures, plants, warm directional light and shadows. Controls float over the scene. Finishing a cup lowers the camera; starting fresh restores the stable pouring angle. Desktop and 390×844 portrait layouts were visually checked in the browser; real-device touch and performance testing remain outstanding.
+

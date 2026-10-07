@@ -13,8 +13,8 @@ let cupPointer:number|null=null,flowPointer:number|null=null,mousePour=false,hel
 const stop=()=>{mousePour=false;held=false;cupPointer=null;flowPointer=null;};
 const active=()=>!paused&&!finished&&(mousePour||held)&&(ledger.remaining>0||el<HTMLInputElement>('unlimited').checked);
 const canvas=view.renderer.domElement;
-canvas.addEventListener('pointerdown',e=>{if(cupPointer!==null)return;cupPointer=e.pointerId;canvas.setPointerCapture(e.pointerId);point.copy(view.point(e.clientX,e.clientY));previous.copy(point);mousePour=e.pointerType!=='touch';});
-canvas.addEventListener('pointermove',e=>{if(cupPointer===e.pointerId||e.pointerType==='mouse'&&cupPointer===null){point.copy(view.point(e.clientX,e.clientY));}});
+canvas.addEventListener('pointerdown',e=>{if(cupPointer!==null||view.point(e.clientX,e.clientY).length()>1.65)return;cupPointer=e.pointerId;canvas.setPointerCapture(e.pointerId);point.copy(view.point(e.clientX,e.clientY));previous.copy(point);mousePour=e.pointerType!=='touch';});
+canvas.addEventListener('pointermove',e=>{if(cupPointer===e.pointerId||e.pointerType==='mouse'&&cupPointer===null){const next=view.point(e.clientX,e.clientY);if(next.length()<=1.65)point.copy(next);}});
 const end=(e:PointerEvent)=>{if(e.pointerId===cupPointer){mousePour=false;cupPointer=null;}};
 canvas.addEventListener('pointerup',end);canvas.addEventListener('pointercancel',end);canvas.addEventListener('lostpointercapture',end);
 canvas.addEventListener('wheel',e=>{e.preventDefault();range.value=String(T.MathUtils.clamp(Number(range.value)-Math.sign(e.deltaY)*.04,.1,1));},{passive:false});
@@ -39,8 +39,11 @@ let last=performance.now(),accumulator=0,frames=0,report=last;
 function frame(now:number){const elapsed=Math.min((now-last)/1000,.1);last=now;const pouring=active();const flow=Number(range.value);const high=preset.value==='Technique'&&el<HTMLSelectElement>('height').value==='high';
  if(!paused&&(!finished||now<settleUntil)){accumulator+=elapsed;const steps=Math.floor(accumulator*60);const origin=previous.clone();for(let i=0;i<steps;i++){const a=origin.clone().lerp(point,i/steps).multiplyScalar(.5).addScalar(.5),b=origin.clone().lerp(point,(i+1)/steps).multiplyScalar(.5).addScalar(.5);let used=0;if(pouring)used=el<HTMLInputElement>('unlimited').checked?flow/60:ledger.spend(flow,1/60);fluid.step(a,b,used*60,1/60,presets[preset.value],high);accumulator-=1/60;}if(steps)previous.copy(point);}
  if(gain&&audio)gain.gain.setTargetAtTime(pouring&&el<HTMLInputElement>('sound').checked?flow*.06:0,audio.currentTime,.03);
- view.coffeeMaterial.uniforms.field.value=fluid.texture;view.render(point,pouring,flow,high);el<HTMLProgressElement>('budget').value=ledger.remaining;el('milk').textContent=el<HTMLInputElement>('unlimited').checked?'∞':`${Math.ceil(ledger.remaining)}%`;
+ view.coffeeMaterial.uniforms.field.value=fluid.texture;view.render(point,pouring,flow,high,finished);el<HTMLProgressElement>('budget').value=ledger.remaining;el('milk').textContent=el<HTMLInputElement>('unlimited').checked?'∞':`${Math.ceil(ledger.remaining)}%`;
  if(ledger.remaining===0&&!finished&&!el<HTMLInputElement>('unlimited').checked){stop();el('status').textContent='Pitcher empty. Refill or enjoy your finished cup.';}
  frames++;if(now-report>1000){el('performance').textContent=`${Math.round(frames*1000/(now-report))} fps · ${fluid.size}² surface · 60 Hz simulation`;frames=0;report=now;}requestAnimationFrame(frame);}
 requestAnimationFrame(frame);
+
+
+
 
