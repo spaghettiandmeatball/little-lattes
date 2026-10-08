@@ -1,0 +1,90 @@
+{
+  "note": "Static initial-depth diagnostic. Pitcher forward is its local -Y spout direction transformed by yaw. Positive dot agrees, negative opposes. No production changes.",
+  "probes": [
+    {
+      "aim": {
+        "x": 0.5,
+        "y": 0.5
+      },
+      "yawDegrees": 180,
+      "pitcherLocalForward": {
+        "x": 1.2246467991473532e-16,
+        "y": 1
+      },
+      "incomingHorizontal": {
+        "x": 0,
+        "y": 0.11582968025561205
+      },
+      "directionDot": 0.11582968025561205,
+      "actualClearanceMm": 2.9984178619946404
+    },
+    {
+      "aim": {
+        "x": 0.5,
+        "y": 0.25
+      },
+      "yawDegrees": 0,
+      "pitcherLocalForward": {
+        "x": 0,
+        "y": -1
+      },
+      "incomingHorizontal": {
+        "x": 0,
+        "y": 0.11582968025561205
+      },
+      "directionDot": -0.11582968025561205,
+      "actualClearanceMm": 2.9984178619946404
+    },
+    {
+      "aim": {
+        "x": 0.25,
+        "y": 0.5
+      },
+      "yawDegrees": 208.64788975654116,
+      "pitcherLocalForward": {
+        "x": -0.4794255386042029,
+        "y": 0.8775825618903728
+      },
+      "incomingHorizontal": {
+        "x": 0,
+        "y": 0.11582968025561205
+      },
+      "directionDot": 0.10165010754166275,
+      "actualClearanceMm": 2.9984178619946404
+    },
+    {
+      "aim": {
+        "x": 0.75,
+        "y": 0.5
+      },
+      "yawDegrees": 151.35211024345884,
+      "pitcherLocalForward": {
+        "x": 0.4794255386042031,
+        "y": 0.8775825618903726
+      },
+      "incomingHorizontal": {
+        "x": 0,
+        "y": 0.11582968025561205
+      },
+      "directionDot": 0.10165010754166273,
+      "actualClearanceMm": 2.9984178619946404
+    },
+    {
+      "aim": {
+        "x": 0.5,
+        "y": 0.75
+      },
+      "yawDegrees": 180,
+      "pitcherLocalForward": {
+        "x": 1.2246467991473532e-16,
+        "y": 1
+      },
+      "incomingHorizontal": {
+        "x": 0,
+        "y": 0.11582968025561205
+      },
+      "directionDot": 0.11582968025561205,
+      "actualClearanceMm": 2.9984178619946404
+    }
+  ]
+}

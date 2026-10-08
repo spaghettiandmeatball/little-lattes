@@ -1,0 +1,116 @@
+{
+  "differences": {
+    "height": {
+      "max": 2.157996004115148e-15,
+      "l1": 3.026436740105609e-12
+    },
+    "foam": {
+      "max": 4.0441543343316955e-13,
+      "l1": 7.90296304231799e-11
+    },
+    "upperMilk": {
+      "max": 4.0441738499708e-13,
+      "l1": 8.893954228151625e-11
+    },
+    "lowerMilk": {
+      "max": 5.687811333032755e-13,
+      "l1": 5.6708163989269145e-11
+    },
+    "gas": {
+      "max": 1.1889285129323968e-13,
+      "l1": 2.331809642124288e-11
+    },
+    "deepGas": {
+      "max": 5.435085975030729e-13,
+      "l1": 2.977529925304642e-11
+    },
+    "crema": {
+      "max": 3.4597094611919788e-15,
+      "l1": 5.064290712983225e-13
+    }
+  },
+  "live": {
+    "mode": "hydrostatic-two-layer-1",
+    "grid": 64,
+    "fillMl": 73.0872764795543,
+    "milkMl": 18.087276479554326,
+    "coffeeMl": 54.99999999999998,
+    "emittedMl": 10.087276479554314,
+    "missMl": 0,
+    "rimSpillMl": 0,
+    "spilledMilkMl": 0,
+    "spilledCoffeeMl": 0,
+    "liquidErrorMl": 1.4210854715202004e-14,
+    "milkErrorMl": -1.4210854715202004e-14,
+    "coffeeErrorMl": 2.1316282072803006e-14,
+    "gasMl": 2.47198879672288,
+    "gasErrorMl": -5.093148125467906e-15,
+    "lostGasMl": 0.06983032316570335,
+    "surfaceFoamMl": 4.2261529159655975,
+    "foamTransportErrorMl": 3.214789545680219e-13,
+    "injectedFoamMl": 6.470472427330121,
+    "entrainedFoamMl": 2.4906001271962466,
+    "resurfacedFoamMl": 0.3138691600556995,
+    "drainedFoamMl": 0.06758854422365483,
+    "upperMilkMl": 6.018145208097199,
+    "lowerMilkMl": 12.06913127145713,
+    "visibleAreaMm2": 1249.9881880949958,
+    "foamCentroid": {
+      "x": 0.5230758415410843,
+      "y": 0.48192545746953863
+    },
+    "foamRmsRadiusMm": 12.359964169878577,
+    "minDepthMm": 14.53256554575401,
+    "maxDepthMm": 14.54800100286416,
+    "peakSpeedMPS": 0.00007938832304144591,
+    "nonFiniteValues": 0,
+    "negativeInventories": 0,
+    "globalCorrectionMl": 0,
+    "incomingImpulseNs": 0.004347277230372676,
+    "substeps": 21,
+    "cpuMs": 7.699999995529652
+  },
+  "replay": {
+    "mode": "hydrostatic-two-layer-1",
+    "grid": 64,
+    "fillMl": 73.08727647955334,
+    "milkMl": 18.087276479553324,
+    "coffeeMl": 55.000000000000014,
+    "emittedMl": 10.087276479553328,
+    "missMl": 0,
+    "rimSpillMl": 0,
+    "spilledMilkMl": 0,
+    "spilledCoffeeMl": 0,
+    "liquidErrorMl": -1.4210854715202004e-14,
+    "milkErrorMl": 3.552713678800501e-15,
+    "coffeeErrorMl": -1.4210854715202004e-14,
+    "gasMl": 2.4719887967211323,
+    "gasErrorMl": -8.132383655379272e-15,
+    "lostGasMl": 0.06983032316720786,
+    "surfaceFoamMl": 4.226152915937513,
+    "foamTransportErrorMl": 3.5227376571356217e-13,
+    "injectedFoamMl": 6.470472427329579,
+    "entrainedFoamMl": 2.490600127233599,
+    "resurfacedFoamMl": 0.3138691600661451,
+    "drainedFoamMl": 0.06758854422425908,
+    "upperMilkMl": 6.018145208063995,
+    "lowerMilkMl": 12.069131271489331,
+    "visibleAreaMm2": 1249.9881880949958,
+    "foamCentroid": {
+      "x": 0.5230758415377259,
+      "y": 0.4819254574683571
+    },
+    "foamRmsRadiusMm": 12.359964169907043,
+    "minDepthMm": 14.532565545755865,
+    "maxDepthMm": 14.548001002862001,
+    "peakSpeedMPS": 0.00007938832302085893,
+    "nonFiniteValues": 0,
+    "negativeInventories": 0,
+    "globalCorrectionMl": 0,
+    "incomingImpulseNs": 0.004347277230372004,
+    "substeps": 21,
+    "cpuMs": 7.300000004470348
+  },
+  "remainingLive": 93.27514901363043,
+  "remainingReplay": 93.27514901363075
+}

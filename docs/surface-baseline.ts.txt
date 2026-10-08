@@ -1,0 +1,122 @@
+import type {Preset} from './model.ts';
+import type {PourSlice} from './input.ts';
+export const SURFACE_SIZE=160;
+export type SurfaceInput={slice:PourSlice;quantity:number};
+type Source={x:number;y:number;dt:number;flow:number;height:number;low:number;radius:number;speedX:number;speedY:number;stroke:number};
+const clamp=(v:number,a:number,b:number)=>Math.max(a,Math.min(b,v));
+
+// Float32 authoritative state; byte display quantization never feeds back.
+// Conservative transport runs once per fixed tick. All event paths contribute
+// normalized ink; momentum uses at most four local quadrature sources per tick.
+export class Surface {
+  readonly size:number;foam:Float32Array;private next:Float32Array;
+  readonly vx:Float32Array;readonly vy:Float32Array;readonly mask:Uint8Array;readonly pixels:Uint8Array;
+  injected=0;visibleInjected=0;mixed=0;outside=0;foamSunk=0;transportPasses=0;
+  constructor(size=SURFACE_SIZE){
+    this.size=size;const n=size*size;
+    this.foam=new Float32Array(n);this.next=new Float32Array(n);this.vx=new Float32Array(n);this.vy=new Float32Array(n);this.mask=new Uint8Array(n);this.pixels=new Uint8Array(n*4);
+    for(let y=0;y<size;y++)for(let x=0;x<size;x++)this.mask[y*size+x]=Math.hypot((x+.5)/size-.5,(y+.5)/size-.5)<.485?1:0;
+  }
+  reset(){this.foam.fill(0);this.next.fill(0);this.vx.fill(0);this.vy.fill(0);this.injected=this.visibleInjected=this.mixed=this.outside=this.foamSunk=this.transportPasses=0;}
+  step(slice:PourSlice,quantity:number,p:Preset){this.stepBatch([{slice,quantity}],p);}
+  stepBatch(parts:SurfaceInput[],p:Preset){
+    const dt=parts.reduce((sum,part)=>sum+part.slice.dt,0),n=this.size;
+    if(dt<=0)return;
+    const ink=new Map<number,{deposit:number;sink:number}>(),sources:Source[]=[];
+    for(const {slice,quantity} of parts){
+      this.injected+=quantity;if(quantity<=0)continue;
+      const {a,b,dt:duration}=slice,height=clamp((a.height+b.height)*.5,0,1);
+      const flow=quantity/Math.max(duration,1e-9),low=Math.pow(1-height,3);
+      const radius=p.radius*(.7+Math.sqrt(flow)*.6)*(1-.62*height);
+      const samples=Math.max(1,Math.ceil(Math.hypot(b.x-a.x,b.y-a.y)/Math.max(radius*.65,.004)));
+      const weights=new Map<number,number>();let totalWeight=0,inCup=0;
+      for(let s=0;s<samples;s++){
+        const t=(s+.5)/samples,x=a.x+(b.x-a.x)*t,y=a.y+(b.y-a.y)*t;
+        if(Math.hypot(x-.5,y-.5)>=.485)continue;inCup++;
+        const reach=radius*3;let sum=0;const local:[number,number][]=[];
+        // Normalize the full kernel, then clip. Rim milk mixes, never moves inward.
+        for(let iy=Math.floor((y-reach)*n);iy<=Math.ceil((y+reach)*n);iy++)for(let ix=Math.floor((x-reach)*n);ix<=Math.ceil((x+reach)*n);ix++){
+          const d2=(((ix+.5)/n-x)**2+((iy+.5)/n-y)**2)/(radius*radius);
+          if(d2>9)continue;const w=Math.exp(-d2*2);sum+=w;
+          if(ix>=0&&iy>=0&&ix<n&&iy<n&&this.mask[iy*n+ix])local.push([iy*n+ix,w]);
+        }
+        for(const [i,w] of local){const normalized=w/sum/samples;weights.set(i,(weights.get(i)||0)+normalized);totalWeight+=normalized;}
+      }
+      this.outside+=quantity*(1-inCup/samples);
+      const visible=quantity*.032*p.opacity*(.018+.982*low);
+      this.visibleInjected+=visible*totalWeight;
+      this.mixed+=quantity*(inCup/samples)-visible*totalWeight/.032/p.opacity;
+      const speedX=clamp((b.x-a.x)/Math.max(duration,1e-6),-2,2),speedY=clamp((b.y-a.y)/Math.max(duration,1e-6),-2,2);
+      for(const [i,w] of weights){
+        const cell=ink.get(i)||{deposit:0,sink:0};cell.deposit+=visible*w*n*n;
+        // Stationary raised impacts mix strongly. Motion entrains foam and
+        // shortens residence under the stream, reducing local sinking.
+        cell.sink+=quantity*height*height*w*n*n*.1/(1+Math.hypot(speedX,speedY)*18);ink.set(i,cell);
+      }
+      if(inCup>0)sources.push({x:(a.x+b.x)*.5,y:(a.y+b.y)*.5,dt:duration,flow,height,low,radius,speedX,speedY,stroke:a.stroke});
+    }
+    // Merge nearby consecutive force samples within a stroke. Deposition above
+    // retains every timestamp and curve vertex. Separate strokes stay separate
+    // for normal input; pathological >4 simultaneous starts retain actual impact
+    // positions, reducing momentum quadrature rather than inventing a dry source.
+    while(sources.length>4){
+      let index=-1,distance=Infinity;
+      for(let i=0;i<sources.length-1;i++)if(sources[i].stroke===sources[i+1].stroke){const d=Math.hypot(sources[i].x-sources[i+1].x,sources[i].y-sources[i+1].y);if(d<distance){index=i;distance=d;}}
+      if(index<0){sources.sort((a,b)=>b.dt*b.flow-a.dt*a.flow);sources.length=4;break;}
+      const a=sources[index],b=sources[index+1],total=a.dt+b.dt;
+      for(const key of ['x','y','flow','height','low','radius','speedX','speedY'] as const)a[key]=(a[key]*a.dt+b[key]*b.dt)/total;
+      a.dt=total;sources.splice(index+1,1);
+    }
+    const damping=Math.exp(-dt*7),diffusion=p.spread*dt*n*n*.0003;
+    this.next.fill(0);this.transportPasses++;
+    for(let y=0;y<n;y++)for(let x=0;x<n;x++){
+      const i=y*n+x;if(!this.mask[i])continue;
+      let ux=this.vx[i]*damping,uy=this.vy[i]*damping;
+      const px=(x+.5)/n,py=(y+.5)/n;
+      for(const source of sources){
+        const dx=px-source.x,dy=py-source.y,d=Math.hypot(dx,dy),reach=Math.max(.08,source.radius*5);
+        if(d>=reach*3)continue;
+        const radial=Math.exp(-d*d/(reach*reach))*source.flow*(.06+.12*p.drift)*source.low;
+        const drag=Math.exp(-d*d/(Math.max(source.radius*2.5,.025)**2));
+        // Smooth source divergence; a unit radial direction has a singular
+        // center that excavates an artificial hole after emission stops.
+        const scale=Math.max(d,reach*.8);
+        ux+=source.dt*12*(dx/scale*radial+source.speedX*drag*(.18+.65*source.height));
+        uy+=source.dt*12*(dy/scale*radial+source.speedY*drag*(.18+.65*source.height));
+      }
+      const qx=px-.5,qy=py-.5,wall=Math.hypot(qx,qy);
+      if(wall>.46){const out=Math.max(0,(ux*qx+uy*qy)/wall);ux-=out*qx/wall;uy-=out*qy/wall;}
+      this.vx[i]=ux;this.vy[i]=uy;
+      const density=this.foam[i];if(density<=0)continue;
+      // Mixing settles with the flow. A small residual rate preserves soft
+      // settling without letting resting artwork diffuse into fog over minutes.
+      const diffuse=Math.min(.12,diffusion*(.02+Math.min(1,Math.hypot(ux,uy)/.08)));
+      this.splat(x+ux*dt*n,y+uy*dt*n,density*(1-diffuse),i);
+      this.splat(x-1,y,density*diffuse*.25,i);this.splat(x+1,y,density*diffuse*.25,i);
+      this.splat(x,y-1,density*diffuse*.25,i);this.splat(x,y+1,density*diffuse*.25,i);
+    }
+    for(const [i,cell] of ink){const sink=Math.exp(-cell.sink);this.foamSunk+=this.next[i]*(1-sink)/(n*n);this.next[i]=this.next[i]*sink+cell.deposit;}
+    [this.foam,this.next]=[this.next,this.foam];
+  }
+  private splat(x:number,y:number,amount:number,origin:number){
+    const n=this.size,ix=Math.floor(x),iy=Math.floor(y),fx=x-ix,fy=y-iy;
+    for(let k=0;k<4;k++){
+      const xx=ix+(k%2),yy=iy+(k>>1),w=(k%2?fx:1-fx)*(k>>1?fy:1-fy);
+      const j=xx>=0&&yy>=0&&xx<n&&yy<n?yy*n+xx:-1;
+      this.next[j>=0&&this.mask[j]?j:origin]+=amount*w;
+    }
+  }
+  upload(mode='milk'){
+    for(let i=0;i<this.foam.length;i++){
+      const m=1-Math.exp(-this.foam[i]*5),j=i*4;
+      this.pixels[j]=clamp(128+this.vx[i]*400,0,255);this.pixels[j+1]=clamp(128+this.vy[i]*400,0,255);
+      this.pixels[j+2]=Math.round(m*255);this.pixels[j+3]=255;
+      if(mode==='velocity')this.pixels[j+2]=128;
+    }return this.pixels;
+  }
+  metrics(){
+    let mass=0,area=0,maxSpeed=0,cx=0,cy=0;
+    for(let i=0;i<this.foam.length;i++){const v=this.foam[i];mass+=v;if(v>.35)area++;cx+=v*((i%this.size)+.5)/this.size;cy+=v*(Math.floor(i/this.size)+.5)/this.size;maxSpeed=Math.max(maxSpeed,Math.hypot(this.vx[i],this.vy[i]));}
+    return {mass:mass/this.size**2,area:area/this.size**2,cx:mass?cx/mass:.5,cy:mass?cy/mass:.5,maxSpeed,injected:this.injected,visibleInjected:this.visibleInjected,mixed:this.mixed,outside:this.outside,foamSunk:this.foamSunk,transportPasses:this.transportPasses};
+  }
+}

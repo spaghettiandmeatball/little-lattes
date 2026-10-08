@@ -1,0 +1,117 @@
+{
+  "assumptions": "One-step impulse: 0.02 UV movement in 1/60 second at height 0.8. Streamed replays release only events available by each render frame; no lookahead. The sparse heart is a deliberate replay/live equivalence stress case; the dense curve uses 120 Hz input.",
+  "forceVsFlow": [
+    {
+      "flow": 0,
+      "density": 0,
+      "quantity": 0,
+      "maxSpeed": 0
+    },
+    {
+      "flow": 0.000001,
+      "density": 0,
+      "quantity": 1.6666666666666667e-8,
+      "maxSpeed": 0.16439670324325562
+    },
+    {
+      "flow": 0.1,
+      "density": 0,
+      "quantity": 0.0016666666666666668,
+      "maxSpeed": 0.16575756669307998
+    },
+    {
+      "flow": 0.5,
+      "density": 0,
+      "quantity": 0.008333333333333333,
+      "maxSpeed": 0.1665953249192188
+    },
+    {
+      "flow": 1,
+      "density": 0,
+      "quantity": 0.016666666666666666,
+      "maxSpeed": 0.16695211841290886
+    }
+  ],
+  "forceVsExistingFoam": [
+    {
+      "flow": 0.65,
+      "density": 0,
+      "quantity": 0.010833333333333334,
+      "maxSpeed": 0.16673368222462967
+    },
+    {
+      "flow": 0.65,
+      "density": 0.2,
+      "quantity": 0.010833333333333334,
+      "maxSpeed": 0.16673368222462967
+    },
+    {
+      "flow": 0.65,
+      "density": 10,
+      "quantity": 0.010833333333333334,
+      "maxSpeed": 0.16673368222462967
+    }
+  ],
+  "preloadedHeart": {
+    "remaining": 78.02720000013989,
+    "metrics": {
+      "mass": 0.08733152657298242,
+      "area": 0.08109375,
+      "cx": 0.47952303697050547,
+      "cy": 0.5399891902673194,
+      "maxSpeed": 0.00017675861963933082,
+      "injected": 2.7465999999824926,
+      "visibleInjected": 0.09231111203763381,
+      "mixed": 0.8234518325317944,
+      "outside": 0,
+      "foamSunk": 0.00497957138250073,
+      "transportPasses": 360
+    }
+  },
+  "streamedHeart": [
+    {
+      "cadence": 30,
+      "remaining": 77.94008888904735,
+      "area": 0.072109375,
+      "meanAbsoluteDensityDifference": 0.07329832468510494,
+      "relativeL1": 0.8393111578537447,
+      "remainingDifference": -0.08711111109253977
+    },
+    {
+      "cadence": 60,
+      "remaining": 77.93375555571468,
+      "area": 0.07171875,
+      "meanAbsoluteDensityDifference": 0.07313388433834116,
+      "relativeL1": 0.8374282141652892,
+      "remainingDifference": -0.09344444442520228
+    },
+    {
+      "cadence": 120,
+      "remaining": 77.93375555571468,
+      "area": 0.07171875,
+      "meanAbsoluteDensityDifference": 0.07313388433834116,
+      "relativeL1": 0.8374282141652892,
+      "remainingDifference": -0.09344444442520228
+    }
+  ],
+  "denseStreamed": [
+    {
+      "cadence": 30,
+      "meanAbsoluteDensityDifference": 0,
+      "relativeL1": 0,
+      "remainingDifference": 0
+    },
+    {
+      "cadence": 60,
+      "meanAbsoluteDensityDifference": 0,
+      "relativeL1": 0,
+      "remainingDifference": 0
+    },
+    {
+      "cadence": 120,
+      "meanAbsoluteDensityDifference": 0,
+      "relativeL1": 0,
+      "remainingDifference": 0
+    }
+  ]
+}

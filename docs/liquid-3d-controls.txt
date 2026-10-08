@@ -1,0 +1,12 @@
+PASS stationary pad pickup preserves flow and height
+PASS thumb alone spends no milk
+PASS two fingers activate flow
+PASS one thumb adjusts both axes
+PASS thumb release and dry reposition spend nothing
+PASS pad re-clutch retains settings
+PASS independent cancellation stops flow
+PASS blur and resume cause no delayed burst
+PASS editing a field does not consume flow shortcuts
+PASS sub-frame mouse tap is not lost
+PASS finish hides active controls
+PASS finish exposes fresh cup

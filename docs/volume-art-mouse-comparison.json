@@ -1,0 +1,8 @@
+{
+  "solver": "gpu-volume-film-1",
+  "filmMaxAbs": 0,
+  "milkDifference": 0,
+  "remainingDifference": 0,
+  "events": 50,
+  "skips": 0
+}

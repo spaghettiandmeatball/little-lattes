@@ -1,0 +1,51 @@
+✔ prepared free surface is motionless, contains real milk and conserves all inventories (395.0736ms)
+✔ stationary low pool grows across three volume checkpoints and survives ten seconds (6483.9212ms)
+✔ matched raised liquid reaches the lower layer while low liquid remains visible (3220.1128ms)
+✔ second pour carries identifiable original foam away from impact (3268.1862ms)
+✔ raised reduced-flow cut changes a narrow corridor while preserving surrounding foam (3137.3202ms)
+✔ real spilling spends incoming milk and withdraws coffee and milk, distinct from misses (1673.8299ms)
+✔ rim assist, pitcher exhaustion, dry pause and unlimited expenditure use live flow limiting (250.119ms)
+✔ dry travel adds neither liquid nor force; tiny source tends continuously to zero (329.116ms)
+✔ cozy intention envelopes stay bounded, preserve preferred delivery and transition without overshoot (0.4522ms)
+✔ upright rim assist raises a bounded pitcher pose without changing the player landing point (0.5863ms)
+✔ source quantities remain conserved under subdivision and near circular walls (447.3762ms)
+✔ 30/60/120 Hz schedules produce identical fields through receipt-gated fixed ticks (1339.8574ms)
+✔ final real browser recording agrees with live fields and replays at 30/60/120 Hz (18580.652ms)
+✔ milk accounting is independent of render cadence (1.0954ms)
+✔ an empty pitcher cannot overspend and refill restores volume (0.1478ms)
+✔ reject unsafe imported tuning (0.1136ms)
+✔ relative pickup, saturated edge re-clutch and fine travel preserve settings (1.2397ms)
+✔ one ballistic jet supplies physical clearance, area, speed, pose and zero-flow limit (0.5312ms)
+✔ injected momentum and spatial speed integral approach zero with actual emitted mass (37.711ms)
+✔ actual budget-limited volume drives the jet; dry repositioning injects nothing (3.8657ms)
+✔ foam-dependent viscosity changes response without locking or losing material (8.4167ms)
+✔ causal receipt deadlines remove preloaded future advantage at 30/60/120 Hz (1430.6346ms)
+✔ actual browser mouse recording keeps its volume and field across display cadences (1393.9242ms)
+✔ recorded cancellation and skipped pause resume dry without replay catch-up (105.7254ms)
+✔ exported packets and recipe replay through the same causal path (240.909ms)
+✔ millimeter oscillations survive input sampling with bounded buffer phase lag (0.9713ms)
+✔ resting curved boundary retains nonnegative fields and accounted volume (223.8023ms)
+heart baseline {"mass":0.08945472734632443,"area":0.047890625,"cx":0.47985924917616596,"cy":0.5880385690263152,"maxSpeed":0.00011868069449140844,"injected":2.7465999999824886,"visibleInjected":0.09485191305147711,"mixed":0.6387797099496854,"outside":0,"foamSunk":0.005397180970566462,"conservationError":-4.73458622307632e-9,"surfaceVolumeMl":23.854593959019848,"bulkVolumeMl":9.104604778213947,"integratedSpeed":0.000017423651833393406,"injectedImpulse":0.022074619216024143,"directionalImpulseX":1.3226078225563979e-13,"directionalImpulseY":-0.00004350680343510881,"transportPasses":360,"substeps":539}
+✔ stationary pools grow with flow and spend the requested quantity (3282.652ms)
+✔ slow and fast trajectories inject the same normalized quantity (3685.5808ms)
+✔ height changes mixing, concentration and transport (2932.8793ms)
+✔ dry gap and new stroke never interpolate deposition (0.3803ms)
+✔ short taps and intermediate curve events survive 30 Hz frames (724.9848ms)
+✔ 1000 Hz curved input retains quantity with only 60 transport passes per second (850.026ms)
+✔ same event stream yields the same field at 30, 60 and 120 rendering Hz (9640.0167ms)
+✔ pool and raised finishing gesture retain artwork with accounted mixing (3138.9714ms)
+✔ rest has zero drift; settling preserves quantity and readable artwork (42770.1182ms)
+✔ off-cup milk spends budget without painting the wall; transport stays bounded (2481.4776ms)
+✔ later pour displaces existing material rather than overwriting it (2931.6408ms)
+✔ cancel/resume clears queued pouring and cannot burst or go negative (14820.4658ms)
+✔ fill rises by actual accepted volume and stops at capacity without spending excess (0.9627ms)
+✔ clearance follows the filled surface and foam partition changes smoothly with impact energy (0.3387ms)
+✔ quantity-derived momentum vanishes continuously when flow goes to zero (0.1684ms)
+ℹ tests 42
+ℹ suites 0
+ℹ pass 42
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 87421.4983

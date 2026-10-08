@@ -1,0 +1,3 @@
+<!doctype html><meta charset="utf-8"><title>Latte responsive layout checks</title><style>html,body{margin:0;background:#ede3d1}iframe{display:block;border:0}</style><iframe id="appFrame" title="Responsive latte sandbox"></iframe><script>
+const sizes={phone:[390,844],short:[320,568],tablet:[768,1024],wide:[1280,720]};const key=new URLSearchParams(location.search).get('size')||'phone',size=sizes[key]||sizes.phone;const f=document.getElementById('appFrame');f.width=size[0];f.height=size[1];f.src='../?verify=controls';document.body.style.width=size[0]+'px';
+</script>

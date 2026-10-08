@@ -1,0 +1,16 @@
+{
+  "drawSettings": {
+    "flow": 0.41,
+    "height": 0.101
+  },
+  "finishSettings": {
+    "flow": 0.137,
+    "height": 0.555
+  },
+  "resetSettings": {
+    "draw": "true",
+    "flow": 0.41,
+    "height": 0.101,
+    "scheme": "advanced"
+  }
+}

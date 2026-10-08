@@ -1,8 +1,8 @@
 export type Preset = { radius: number; spread: number; drift: number; opacity: number };
 export const defaults: Record<string, Preset> = {
-  Drawing: { radius: .022, spread: .015, drift: .04, opacity: 1.8 },
-  Accessible: { radius: .032, spread: .09, drift: .3, opacity: 1.5 },
-  Technique: { radius: .026, spread: .14, drift: .65, opacity: 1.3 },
+  Drawing: { radius: .032, spread: .04, drift: .35, opacity: 1.5 },
+  Accessible: { radius: .034, spread: .06, drift: .5, opacity: 1.5 },
+  Technique: { radius: .03, spread: .07, drift: .65, opacity: 1.4 },
 };
 export class MilkLedger {
   remaining = 100;
