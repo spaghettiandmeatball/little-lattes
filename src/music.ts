@@ -6,14 +6,27 @@ export interface Track {
 }
 
 /**
- * Drop more songs in here!
- * Simply add your .mp3 file into `public/music/` and add an entry below.
- * You can also drag and drop .mp3 files directly onto the radio in your browser!
+ * Café playlist — add more songs anytime!
+ * Drop your .mp3 file into `public/music/` and add an entry below.
+ * You can also drag and drop audio files directly onto the radio in your browser!
  */
 export const tracks: Track[] = [
-  { title: 'Afternoon Rush at Café Veloce', file: 'afternoon-rush-at-cafe-veloce.mp3', artist: 'Café Veloce' },
-  { title: 'Raindrop Latte', file: 'raindrop-latte.mp3', artist: 'Lo-Fi Roasters' },
-  { title: 'Rainy Cafe Window', file: 'rainy-cafe-window.mp3', artist: 'Quiet Corner' },
+  { title: 'Afternoon Rush at Café Veloce', file: 'afternoon-rush-at-cafe-veloce.mp3' },
+  { title: 'Raindrop Latte', file: 'raindrop-latte.mp3' },
+  { title: 'Rainy Cafe Window', file: 'rainy-cafe-window.mp3' },
+  { title: 'After Hours, D Minor', file: 'After Hours, D Minor.mp3' },
+  { title: 'After the Lobby Closes', file: 'After the Lobby Closes.mp3' },
+  { title: 'Corner Table', file: 'Corner Table.mp3' },
+  { title: 'First Light', file: 'First Light.mp3' },
+  { title: 'Kyoto 3', file: 'kyoto 3.mp3' },
+  { title: 'Lanterns at the Café', file: 'Lanterns at the Café.mp3' },
+  { title: 'Midnight Devotion', file: 'Midnight Devotion.mp3' },
+  { title: 'Rain on the Window', file: 'Rain on the Window.mp3' },
+  { title: 'Slow Sunday', file: 'Slow Sunday.mp3' },
+  { title: 'Stolen Glances', file: 'Stolen Glances.mp3' },
+  { title: 'Tokyo Café Shuffle', file: 'Tokyo Café Shuffle.mp3' },
+  { title: 'Two Sugars, One Secret', file: 'Two Sugars, One Secret.mp3' },
+  { title: '雨の窓辺 (Ame no Madobe)', file: '雨の窓辺 (Ame no Madobe).mp3' },
 ];
 
 export const musicControls = `
@@ -39,7 +52,7 @@ export const musicControls = `
     <div class="radio-track-info">
       <div class="radio-track-title" id="radioTrackTitle" title="Click to choose a specific track">Afternoon Rush at Café Veloce</div>
       <div class="radio-track-sub" id="radioTrackSub">
-        <span id="radioStatus">Press play for music</span> · <span id="radioIndex">Track 1 of 3</span>
+        <span id="radioStatus">Press play for music</span> · <span id="radioIndex">Track 1 of ${tracks.length}</span>
       </div>
     </div>
     <select id="radioTrackSelect" class="radio-track-select" aria-label="Select coffee music track">
@@ -131,7 +144,7 @@ export function setupMusic() {
 
   function getTrackUrl(track: Track): string {
     if (track.url) return track.url;
-    return `${import.meta.env.BASE_URL}music/${track.file}`;
+    return `${import.meta.env.BASE_URL}music/${encodeURI(track.file || '')}`;
   }
 
   function rebuildTrackSelect() {
@@ -168,7 +181,7 @@ export function setupMusic() {
     const track = tracks[currentIndex];
     trackTitle.textContent = track ? track.title : 'No track selected';
     trackTitle.setAttribute('title', track ? `${track.title}${track.artist ? ` · ${track.artist}` : ''} (Click to change)` : '');
-    trackIndex.textContent = `${currentIndex + 1} / ${tracks.length}`;
+    trackIndex.textContent = `Track ${currentIndex + 1} of ${tracks.length}`;
     trackSelect.value = String(currentIndex);
 
     const isPlaying = !player.paused && !player.ended;
