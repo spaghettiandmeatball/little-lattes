@@ -1,5 +1,9 @@
 name: Check prototype
-on: [push, pull_request]
+on:
+  pull_request:
+  push:
+    branches-ignore:
+      - main
 jobs:
   check:
     runs-on: ubuntu-latest
