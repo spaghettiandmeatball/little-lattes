@@ -24,6 +24,7 @@ import {mountCornerStudio} from './corner-studio';
 
 const defaultAdvanced=intendedSettings(FRESH_CUP.intention,FRESH_CUP.delivery);
 document.querySelector('#app')!.innerHTML=`<main>
+${musicControls}
 <header><span class="eyebrow">THE AFTERNOON POUR</span><h1>Little Latte <span>✦</span></h1></header>
 <div id="modeControls"><label>Simulation <select id="mode"><option value="cozy">Latte art · free surface</option><option value="surface">Existing surface</option><option value="volume" selected>3D latte art</option></select></label><small id="compatibility">3D coffee and milk · prepared cup</small></div>
 <div id="stage" aria-label="Latte art surface"></div>
@@ -44,7 +45,7 @@ document.querySelector('#app')!.innerHTML=`<main>
 <p id="status" role="status">Pour low to grow a pool. Lift and reduce flow to cut through.</p>
 </section>
 <details><summary>Studio settings</summary><div class="settings">
-${musicControls}
+<small style="color:#d4cfb8;padding-bottom:6px;border-bottom:1px solid #ffffff18">Café radio is live in the top-left corner.</small>
 <label>Controls <select id="scheme"><option value="cozy">Cozy</option><option value="advanced" selected>Advanced</option></select></label>
 <button id="mixIntent">Mix · optional practice</button><label><input id="stopAtRim" type="checkbox"> Stop pouring at the rim</label>
 <label><input id="rimAccess" type="checkbox" checked> Assist pitcher clearance at rim</label>
