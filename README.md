@@ -1,6 +1,12 @@
+## Current corner and mobile build — 8 October 2026
+
+Advanced remains the default. The pouring pad now steers the spout; flow and height stay separate. On phones, a minimal dock opens adjustments, cup actions, room/gallery and radio only when needed. Decorate personalizes the room; Take photo freezes the actual cup and saves a 1080px shot into My pours. [Build details, evidence and limits](docs/fidelity-build-2026-10-08.md).
+
 Current default: **3D latte art** with Advanced flow and height controls, the tuned Draw start (4.9 ml/s at 2.8 mm), fine 160² milk-purity surface, tapered Finish response, adaptive pitcher clearance, and High visual quality. **Fresh cup** clears the art and refills milk while keeping the current flow, height, intention, and other controls. If the device cannot run the 3D solver, the game opens in free-surface art. `?mode=cozy` and `?mode=surface` remain available. **Show a pour** demonstrates a heart: a low stationary pool followed by a raised forward cut. See [heart response and validation](docs/heart-pour-update.md). Earlier checkpoint reports below are historical.
 
 Advanced controls now open by default: adjust flow and height independently, use the wheel for height, A/D for flow, and Shift for fine control. Cozy controls remain available in Studio settings.
+
+Startup explicitly applies the recommended settings in `src/session-config.ts` on each launch. Simulation choices are labeled **Full 3D · recommended**, **Free surface · compatibility**, and **Original surface · legacy** to distinguish them. High quality is applied to the renderer at startup as well as shown in the selector. Saved room, gallery and radio preferences remain independent; explicit `?mode=` comparison links still override the simulation choice.
 
 # Little Latte
 

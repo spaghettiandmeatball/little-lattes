@@ -1,0 +1,25 @@
+PASS aiming alone stays dry
+PASS stationary pad pickup preserves flow and height
+PASS pour pad alone uses retained aim
+PASS two fingers activate flow
+PASS advanced pad changes both axes
+PASS thumb release and dry reposition spend nothing
+PASS pad re-clutch retains settings
+PASS independent cancellation stops flow
+PASS blur and resume cause no delayed burst
+PASS aim lift retains pouring while pad is held
+PASS reverse from saturation responds immediately
+PASS resize cancels the pour and resumes dry
+PASS intention switch never starts pouring
+PASS advanced Finish raises and reduces the stream
+PASS advanced intent cycling preserves delivery
+PASS Fresh cup preserves the selected Finish controls
+PASS editing a field does not consume flow shortcuts
+PASS sub-frame mouse tap is not lost
+PASS aim pad pickup does not teleport the spout
+PASS aim pad moves spout right and up
+PASS aim pad preserves Advanced flow and height
+PASS lifting the steering pad stops milk
+PASS aim pad re-clutch retains the last spout position
+PASS finish hides active controls
+PASS finish exposes fresh cup

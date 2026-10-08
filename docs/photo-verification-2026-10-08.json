@@ -1,0 +1,25 @@
+{
+  "immutableAfterFreshCup": true,
+  "identicalAfterNineVariants": true,
+  "dimensions": [
+    1080,
+    1080
+  ],
+  "portrait": [
+    1080,
+    1350
+  ],
+  "captureMs": [
+    59.900000005960464,
+    68.40000000596046,
+    65.2999999821186,
+    106.30000001192093,
+    87,
+    78.40000000596046,
+    101.90000000596046,
+    70.09999999403954,
+    63.29999998211861
+  ],
+  "texturesBefore": 27,
+  "texturesAfter": 28
+}
