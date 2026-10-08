@@ -4,12 +4,12 @@ export type PhotoSummary=Omit<PhotoRecord,'image'>;
 let database:Promise<IDBDatabase>|undefined;
 function open(){
  return database??=new Promise<IDBDatabase>((resolve,reject)=>{
-  const request=indexedDB.open('little-latte-photos',1);
+  const request=indexedDB.open('little-latte-photos',1);let blocked=false;
   request.onupgradeneeded=()=>{const db=request.result;db.createObjectStore('photos',{keyPath:'id'});const summaries=db.createObjectStore('summaries',{keyPath:'id'});summaries.createIndex('createdAt','createdAt');};
   request.onerror=()=>{database=undefined;reject(request.error);};
-  request.onblocked=()=>{database=undefined;reject(Error('Close other Little Latte tabs and retry.'));};
-  request.onsuccess=()=>{const db=request.result;db.onversionchange=()=>{db.close();database=undefined;};resolve(db);};
- });
+  request.onblocked=()=>{blocked=true;database=undefined;reject(Error('Close other Little Latte tabs and retry.'));};
+  request.onsuccess=()=>{const db=request.result;if(blocked){db.close();return;}db.onversionchange=()=>{db.close();database=undefined;};resolve(db);};
+ }).catch(error=>{database=undefined;throw error;});
 }
 export async function savePhoto(photo:PhotoRecord){
  const db=await open();

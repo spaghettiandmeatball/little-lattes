@@ -1,4 +1,5 @@
 import './style.css';
+import './mobile.css';
 import * as T from 'three';
 import {createScene} from './scene';
 import {Fluid} from './fluid';
@@ -6,7 +7,7 @@ import {defaults,MilkLedger,validPreset,type Preset} from './model';
 import {InputTimeline,initialState,INPUT_BUFFER,type PourState} from './input';
 import {replays,sampleScript,heartArtReplay} from './replays';
 import {clearanceMeters,solveJet,clamp,type JetState} from './jet';
-import {padSettings,wheelHeight,heldFlow,type PadAnchor} from './controls';
+import {padSettings,padAim,wheelHeight,heldFlow,type PadAnchor} from './controls';
 import {InputRecorder,validRecording} from './recording';
 import type {SurfaceInput} from './surface';
 import {musicControls,setupMusic} from './music';
@@ -18,7 +19,7 @@ import {COZY_VERSION} from './cozy-liquid';
 import {intendedSettings,advancePhysicalSettings,padDelivery,type Intention,type ControlResponse} from './cozy-controls';
 import {permittedFlow} from './emission';
 import {solveCozyJet,solveLatteJet,type EquipmentModel} from './equipment';
-import {FRESH_CUP} from './session-config';
+import {FRESH_CUP,RECOMMENDED_SETTINGS} from './session-config';
 import {replayControls,wrapBearing} from './pour-pose';
 import {mountCornerStudio} from './corner-studio';
 
@@ -26,12 +27,13 @@ const defaultAdvanced=intendedSettings(FRESH_CUP.intention,FRESH_CUP.delivery);
 document.querySelector('#app')!.innerHTML=`<main>
 ${musicControls}
 <header><span class="eyebrow">THE AFTERNOON POUR</span><h1>Little Latte <span>✦</span></h1></header>
-<div id="modeControls"><label>Simulation <select id="mode"><option value="cozy">Latte art · free surface</option><option value="surface">Existing surface</option><option value="volume" selected>3D latte art</option></select></label><small id="compatibility">3D coffee and milk · prepared cup</small></div>
+<div id="modeControls"><label>Simulation <select id="mode" aria-describedby="compatibility"><option value="cozy">Free surface · compatibility</option><option value="surface">Original surface · legacy</option><option value="volume" selected>Full 3D · recommended</option></select></label><small id="compatibility">Full liquid depth and latte-art surface</small></div>
 <div id="stage" aria-label="Latte art surface"></div>
 <div id="aimZone" aria-label="Relative aiming area below the cup">Slide to aim · follow the marker</div>
 <aside id="bulkPanel" hidden><span>CUP CROSS-SECTION · live liquid</span><canvas id="bulkSlice" width="256" height="90" aria-label="Milk concentration and circulation through cup depth"></canvas><small id="bulkCaption"></small></aside>
 <p id="hint">Hold the cup to pour · wheel: height · A / D: flow</p>
 <section class="controls">
+<div class="dock-toolbar" aria-label="Pouring dock"><button id="dockAdjust" aria-expanded="false" aria-controls="pourControls"><span>Adjust</span><small id="dockValues">Flow · height</small></button><button id="dockCup" aria-expanded="false">Cup</button><button id="dockCorner" aria-expanded="false">Corner</button><button id="dockRadio" aria-expanded="false" aria-label="Open café radio">♫</button></div>
 <div class="milk"><span id="phase">POURING STUDIO</span><strong id="milk">100%</strong></div><progress id="budget" max="100" value="100"></progress>
 <div class="intentions" role="group" aria-label="Pour intention"><button id="drawIntent" aria-pressed="true">Draw</button><button id="finishIntent" aria-pressed="false">Finish</button><button id="showPour">Show a pour</button></div>
 <div id="pourControls"><div class="adjustments">
@@ -39,19 +41,21 @@ ${musicControls}
 <label class="advancedControl">Height <input id="height" type="range" min="0" max="1" step="0.001" value="${defaultAdvanced.height}"><output id="heightValue">${(clearanceMeters(defaultAdvanced.height)*1000).toFixed(1)} mm</output></label>
 <div id="clearance" class="advancedControl" aria-label="Spout clearance"><span class="spout-cue">▾</span><span class="surface-cue"></span><small>Prepared canvas</small></div>
 <div class="mini"><button id="less" aria-label="Gentler delivery">−</button><span class="deliveryScale">Gentle ↔ generous</span><button id="more" aria-label="More generous delivery">+</button><label class="advancedControl">Feel <select id="preset"><option>Drawing</option><option selected>Accessible</option><option>Technique</option></select></label></div>
-</div><button id="pour" aria-label="Hold to pour; drag horizontally for flow and vertically for height"><span>Hold to pour</span><small>↑ height · flow →</small><i id="padDot"></i></button></div>
-<div class="bearing-control"><button id="bearingLeft" aria-label="Turn pour direction left">↶</button><label><span id="bearingArrow" aria-hidden="true">↑</span> Pour direction<input id="bearing" aria-label="Pour direction" type="range" min="-180" max="180" step="1" value="0"><output id="bearingValue">0°</output></label><button id="bearingRight" aria-label="Turn pour direction right">↷</button></div>
+</div><button id="pour" aria-label="Hold to pour and slide to move the spout"><span>Hold to pour</span><small>Slide to steer the spout</small><i id="padDot"></i></button></div>
+<div class="bearing-control"><button id="bearingLeft" aria-label="Turn pour direction left">↶</button><label><span id="bearingArrow" aria-hidden="true">↑</span> <span class="directionLabel">Direction</span><input id="bearing" aria-label="Pour direction" type="range" min="-180" max="180" step="1" value="0"><output id="bearingValue">0°</output></label><button id="bearingRight" aria-label="Turn pour direction right">↷</button></div>
 <div class="row actions"><button id="reset">Fresh cup</button><button id="refill">Refill milk</button><button id="finish">Enjoy cup</button><button id="takePhoto">Take photo</button></div>
 <p id="status" role="status">Pour low to grow a pool. Lift and reduce flow to cut through.</p>
 </section>
 <details><summary>Studio settings</summary><div class="settings">
-<small style="color:#d4cfb8;padding-bottom:6px;border-bottom:1px solid #ffffff18">Café radio is live in the top-left corner.</small>
+<small>Opens ready to pour: Full 3D, High quality, Advanced controls and a pad that steers the spout.</small>
+<small style="color:#d4cfb8;padding-bottom:6px;border-bottom:1px solid #ffffff18">Café radio opens from the music button on the mobile dock.</small>
+<label>Pour pad <select id="padMode"><option value="aim" selected>Move the spout</option><option value="settings">Adjust flow & height</option></select></label>
 <label>Controls <select id="scheme"><option value="cozy">Cozy</option><option value="advanced" selected>Advanced</option></select></label>
 <button id="mixIntent">Mix · optional practice</button><label><input id="stopAtRim" type="checkbox"> Stop pouring at the rim</label>
 <label><input id="rimAccess" type="checkbox" checked> Assist pitcher clearance at rim</label>
 <label><input id="developer" type="checkbox"> Developer measurements</label>
 <label><input id="left" type="checkbox"> Left-handed controls</label><label><input id="unlimited" type="checkbox"> Unlimited milk</label><label><input id="sound" type="checkbox"> Pour sound</label>
-<label>Visual quality <select id="quality"><option value="1">Standard</option><option value="2" selected>High</option></select></label>
+<label>Visual quality <select id="quality"><option value="1">Standard</option><option value="2" selected>High · recommended</option></select></label>
 <label>Field view <select id="field"><option value="milk">Milk</option><option value="velocity">Velocity</option></select></label>
 <label>Touch marker offset <input id="offset" type="range" min="0" max="60" value="32"><span>px</span></label>
 <label><input id="fine" type="checkbox"> Precision controls (also hold Shift)</label>
@@ -67,6 +71,7 @@ ${musicControls}
 <small>Scripts emit 120 Hz packets. Your recordings preserve event and receipt times. Both use the same 33 ms input buffer.</small><small id="performance"></small><pre id="diagnostics"></pre>
 </div></details></main>`;
 setupMusic();
+document.querySelector('.adjustments')!.append(document.querySelector('.bearing-control')!);
 const el=<E extends HTMLElement>(id:string)=>document.getElementById(id) as E;
 const range=el<HTMLInputElement>('flow'),heightRange=el<HTMLInputElement>('height'),preset=el<HTMLSelectElement>('preset'),ledger=new MilkLedger();
 let presets:Record<string,Preset>=structuredClone(defaults);
@@ -129,7 +134,7 @@ function stop(dropHistory=false,reason='stop'){
  playbackSkips=[];
 }
 function move(e:PointerEvent){const p=view.point(e.clientX,e.clientY-(e.pointerType==='touch'?Number(el<HTMLInputElement>('offset').value):0));if(steeringPoint&&cupPointer===e.pointerId){const gain=(e.shiftKey||fine()) ? .2 : 1;state.x+=(p.x-steeringPoint.x)*.5*gain;state.y+=(p.y-steeringPoint.y)*.5*gain;}else{state.x=p.x*.5+.5;state.y=p.y*.5+.5;}steeringPoint=cupPointer===e.pointerId?p:null;emit(e.timeStamp/1000);}
-function hint(){el('app').classList.toggle('touch',touch);el('hint').textContent=touch?(cozyControls()?'Aim below the cup · hold the pad · slide sideways for delivery':'Aim below the cup · hold the pad · sideways: flow · up/down: height'):cozyControls()?intention==='finish'?'Pull through once · release while moving for a fine tip':'Hold to pour · wheel: delivery · choose Finish for the cut':'Hold to pour · wheel: height · A / D: flow · Shift: fine';}
+function hint(){el('app').classList.toggle('touch',touch);el('hint').textContent=touch&&padAiming()?'Hold the pad to pour · slide to steer · lift to stop':touch?(cozyControls()?'Aim below the cup · hold the pad · slide sideways for delivery':'Aim below the cup · hold the pad · sideways: flow · up/down: height'):cozyControls()?intention==='finish'?'Pull through once · release while moving for a fine tip':'Hold to pour · wheel: delivery · choose Finish for the cut':'Hold to pour · wheel: height · A / D: flow · Shift: fine';}
 canvas.addEventListener('pointerdown',e=>{
  if(e.button!==0||cupPointer!==null||finished)return;
  if(replayEnd)stop(true);touch=e.pointerType==='touch';hint();cupPointer=e.pointerId;steeringPoint=touch?view.point(e.clientX,e.clientY-Number(el<HTMLInputElement>('offset').value)):null;canvas.setPointerCapture(e.pointerId);mousePour=!touch;move(e);
@@ -144,9 +149,12 @@ canvas.addEventListener('pointerup',e=>{if(e.pointerId===cupPointer){move(e);mou
 for(const event of ['pointercancel','lostpointercapture'])canvas.addEventListener(event,e=>{if((e as PointerEvent).pointerId===cupPointer)stop();});
 canvas.addEventListener('wheel',e=>{if(finished||e.ctrlKey||e.metaKey||e.altKey)return;e.preventDefault();const target=cozyControls()?range:heightRange;target.value=String(clamp(Number(target.value)+wheelHeight(e.deltaY,e.deltaMode,e.shiftKey||fine()),0,1));emit();},{passive:false});
 const pour=el('pour');
-function pad(e:PointerEvent){if(!padAnchor)return;const r=pour.getBoundingClientRect();if(cozyControls())range.value=String(padDelivery(Number(range.value),e.clientX-padAnchor.x,r.width,e.shiftKey||fine()));else {const values=padSettings(padAnchor,e.clientX,e.clientY,r.width,r.height,e.shiftKey||fine());range.value=String(values.flow);heightRange.value=String(values.height);}padAnchor={x:e.clientX,y:e.clientY,flow:Number(range.value),height:Number(heightRange.value)};emit(e.timeStamp/1000);}
-pour.addEventListener('pointerdown',e=>{if(e.button!==0||flowPointer!==null||finished)return;e.preventDefault();if(e.pointerType==='touch'){touch=true;hint();}flowPointer=e.pointerId;pour.setPointerCapture(e.pointerId);padAnchor={x:e.clientX,y:e.clientY,flow:Number(range.value),height:Number(heightRange.value)};held=true;emit(e.timeStamp/1000);});
-pour.addEventListener('pointermove',e=>{if(e.pointerId===flowPointer)pad(e);});
+const padAiming=()=>el<HTMLSelectElement>('padMode').value==='aim';
+function updatePadLabel(){pour.setAttribute('aria-label',padAiming()?'Hold to pour and slide to move the spout':cozyControls()?'Hold to pour; drag horizontally to adjust delivery':'Hold to pour; drag horizontally for flow and vertically for height');document.querySelector('#pour small')!.textContent=padAiming()?'Slide to steer the spout':cozyControls()?'← delivery →':'↑ height · flow →';pour.classList.toggle('aim-pad',padAiming());}
+el('padMode').onchange=()=>{stop(true,'pad-mode');updatePadLabel();hint();};
+function pad(e:PointerEvent){if(!padAnchor)return;const r=pour.getBoundingClientRect();if(padAiming()){Object.assign(state,padAim(state,e.clientX-padAnchor.x,e.clientY-padAnchor.y,r.width,r.height,e.shiftKey||fine()));}else if(cozyControls())range.value=String(padDelivery(Number(range.value),e.clientX-padAnchor.x,r.width,e.shiftKey||fine()));else {const values=padSettings(padAnchor,e.clientX,e.clientY,r.width,r.height,e.shiftKey||fine());range.value=String(values.flow);heightRange.value=String(values.height);}padAnchor={x:e.clientX,y:e.clientY,flow:Number(range.value),height:Number(heightRange.value)};emit(e.timeStamp/1000);}
+pour.addEventListener('pointerdown',e=>{if(e.button!==0||flowPointer!==null||finished)return;e.preventDefault();if(replayEnd)stop(true,'pad-interrupt');if(e.pointerType==='touch'){touch=true;hint();}flowPointer=e.pointerId;pour.setPointerCapture(e.pointerId);padAnchor={x:e.clientX,y:e.clientY,flow:Number(range.value),height:Number(heightRange.value)};held=true;emit(e.timeStamp/1000);});
+pour.addEventListener('pointermove',e=>{if(e.pointerId===flowPointer){const samples=e.getCoalescedEvents?.()||[];for(const sample of samples.length?samples:[e])pad(sample);}});
 for(const event of ['pointerup','pointercancel','lostpointercapture'])pour.addEventListener(event,e=>{if((e as PointerEvent).pointerId===flowPointer){held=false;flowPointer=null;padAnchor=null;emit((e as PointerEvent).timeStamp/1000);}});
 pour.addEventListener('keydown',e=>{if(e.code==='Space'||e.code==='Enter'){e.preventDefault();held=true;emit();}});pour.addEventListener('keyup',()=>{held=false;emit();});pour.addEventListener('blur',()=>{held=false;emit();});
 range.oninput=heightRange.oninput=()=>emit();
@@ -158,7 +166,7 @@ window.addEventListener('blur',()=>{paused=true;stop(true,'blur');});window.addE
 window.addEventListener('resize',()=>stop(true,'resize'));window.addEventListener('orientationchange',()=>stop(true,'orientation'));
 function chooseIntention(next:Intention){intention=next;if(!cozyControls()){const settings=intendedSettings(next,state.delivery??.35);range.value=String(settings.flow);heightRange.value=String(settings.height);}for(const key of ['draw','finish'])el(key+'Intent').setAttribute('aria-pressed',String(next===key));emit();hint();el('status').textContent=next==='finish'?'Pull through in one motion. Release while still moving for a fine tip.':next==='mix'?'Raised pour for mixing. Choose Draw when ready.':'Hold near the centre to grow a pool; small, slow wiggles make bands.';}
 el('drawIntent').onclick=()=>chooseIntention('draw');el('finishIntent').onclick=()=>chooseIntention('finish');el('mixIntent').onclick=()=>chooseIntention('mix');
-el('scheme').onchange=()=>{stop(true,'scheme');const isCozy=cozyControls();range.min=isCozy?'0':'.1';range.value=String(isCozy?(state.delivery??.65):Math.max(.1,controlPhysical.flow));heightRange.value=String(controlPhysical.height);document.querySelector('main')!.classList.toggle('cozyControls',isCozy);document.querySelector('#pour small')!.textContent=isCozy?'← delivery →':'↑ height · flow →';el('deliveryLabel').textContent=isCozy?'Delivery':'Flow';range.setAttribute('aria-label',isCozy?'Delivery':'Flow');pour.setAttribute('aria-label',isCozy?'Hold to pour; drag horizontally to adjust delivery':'Hold to pour; drag horizontally for flow and vertically for height');hint();emit();};
+el('scheme').onchange=()=>{stop(true,'scheme');const isCozy=cozyControls();range.min=isCozy?'0':'.1';range.value=String(isCozy?(state.delivery??.65):Math.max(.1,controlPhysical.flow));heightRange.value=String(controlPhysical.height);document.querySelector('main')!.classList.toggle('cozyControls',isCozy);document.querySelector('#pour small')!.textContent=isCozy?'← delivery →':'↑ height · flow →';el('deliveryLabel').textContent=isCozy?'Delivery':'Flow';range.setAttribute('aria-label',isCozy?'Delivery':'Flow');pour.setAttribute('aria-label',isCozy?'Hold to pour; drag horizontally to adjust delivery':'Hold to pour; drag horizontally for flow and vertically for height');updatePadLabel();hint();emit();};
 el('stopAtRim').onchange=()=>{sealRecording();cozy.stopAtRim=el<HTMLInputElement>('stopAtRim').checked;};
 el('rimAccess').onchange=()=>{sealRecording();stop(true,'rim-assist');};
 el('developer').onchange=()=>{document.querySelector('main')!.classList.toggle('developer',el<HTMLInputElement>('developer').checked);el('bulkPanel').hidden=!experimental||!el<HTMLInputElement>('developer').checked;};
@@ -177,13 +185,13 @@ function fresh(){
 el<HTMLSelectElement>('mode').onchange=()=>{
  stop(true);const requested=el<HTMLSelectElement>('mode').value==='volume';
  cozyMode=el<HTMLSelectElement>('mode').value==='cozy';
- try{if(requested&&!liquid)liquid=new Liquid3D(view.renderer);experimental=requested;el('compatibility').textContent=requested?'3D coffee and milk · Draw low, then Finish to pull through':'Existing fixed prepared surface';}
+ try{if(requested&&!liquid)liquid=new Liquid3D(view.renderer);experimental=requested;el('compatibility').textContent=requested?'Recommended · full liquid depth and latte-art surface':'Legacy · original fixed surface for comparison';}
  catch(error){experimental=false;cozyMode=true;el<HTMLSelectElement>('mode').value='cozy';el<HTMLSelectElement>('mode').options[2].disabled=true;el('compatibility').textContent=`3D unavailable on this device (${String(error)}). Using free surface art.`;}
- if(cozyMode&&!requested)el('compatibility').textContent='Hydrostatic free surface · prepared recipe';
+ if(cozyMode&&!requested)el('compatibility').textContent='Compatibility option · moving surface with the same latte-art layer';
  el('bulkPanel').hidden=!experimental||!el<HTMLInputElement>('developer').checked;preset.disabled=experimental||cozyMode;el('tuning').hidden=experimental||cozyMode;document.querySelector('#clearance small')!.textContent=experimental||cozyMode?'Current liquid surface':'Prepared canvas';fresh();
 };
 function startDrawing(){sealRecording();equipmentModel='adaptive-center-1';controlResponse='dry-ready-1';el<HTMLInputElement>('rimAccess').checked=FRESH_CUP.rimAccess;el<HTMLInputElement>('stopAtRim').checked=FRESH_CUP.stopAtRim;cozy.stopAtRim=FRESH_CUP.stopAtRim;if(cozyMode||experimental){range.value=String(cozyControls()?FRESH_CUP.delivery:intendedSettings(FRESH_CUP.intention,FRESH_CUP.delivery).flow);state={...initialState(),x:FRESH_CUP.x,y:FRESH_CUP.y,delivery:FRESH_CUP.delivery};chooseIntention(FRESH_CUP.intention);}fresh();}
-el('reset').onclick=fresh;
+el('reset').onclick=()=>{fresh();closeDocks();};
 el('refill').onclick=()=>{sealRecording();ledger.refill();el('status').textContent='Pitcher refilled.';};
 el('finish').onclick=()=>{sealRecording();stop();finished=true;settleUntil=performance.now()/1000+20;document.querySelector('main')!.classList.add('finished');view.setEnjoy(true);el('phase').textContent='YOUR FINISHED CUP';el('status').textContent='Letting your art settle…';};
 function tuning(){el('tuning').innerHTML=Object.entries(presets[preset.value]).map(([key,value])=>`<label>${key}<input data-param="${key}" type="range" min="${key==='radius'?.01:key==='opacity'?.5:0}" max="${key==='radius'?.08:key==='spread'?.25:key==='opacity'?3:1}" step="0.001" value="${value}"></label>`).join('');el('tuning').querySelectorAll<HTMLInputElement>('input').forEach(input=>input.oninput=()=>{sealRecording();presets[preset.value][input.dataset.param as keyof Preset]=Number(input.value);});}
@@ -283,9 +291,9 @@ function frame(ms:number){
  const renderStart=performance.now();if(!studio?.active||document.querySelector('.decorate-studio[open]'))view.render(currentJet,pouring,finished||!!studio?.active);renderMs+=performance.now()-renderStart;
  if(renderSamples.length<18000)renderSamples.push(performance.now()-renderStart);
  el<HTMLProgressElement>('budget').value=ledger.remaining;el('milk').textContent=unlimited()?'∞':`${Math.ceil(ledger.remaining)}% milk`;
- el('flowValue').textContent=cozyControls()?`${Math.round(Number(range.value)*100)}%`:`${(Number(range.value)*12).toFixed(1)} ml/s`;el('heightValue').textContent=`${(clearanceMeters(controlPhysical.height)*1000).toFixed(1)} mm`;
+ el('flowValue').textContent=cozyControls()?`${Math.round(Number(range.value)*100)}%`:`${(Number(range.value)*12).toFixed(1)} ml/s`;el('heightValue').textContent=`${(clearanceMeters(controlPhysical.height)*1000).toFixed(1)} mm`;el('dockValues').textContent=cozyControls()?`${Math.round(Number(range.value)*100)}% · ${intention}`:`${(Number(range.value)*12).toFixed(1)} ml/s · ${(clearanceMeters(Number(heightRange.value))*1000).toFixed(0)} mm`;
  el('clearance').style.setProperty('--gap',`${6+Number(heightRange.value)*20}px`);
- el('padDot').style.left=`${cozyControls()?Number(range.value)*100:(visual.flow-.1)/.9*100}%`;el('padDot').style.top=cozyControls()?'85%':`${(1-visual.height)*100}%`;
+ el('padDot').style.left=padAiming()?`${Math.max(0,Math.min(1,state.x))*100}%`:`${cozyControls()?Number(range.value)*100:(visual.flow-.1)/.9*100}%`;el('padDot').style.top=padAiming()?`${(1-Math.max(0,Math.min(1,state.y)))*100}%`:cozyControls()?'85%':`${(1-visual.height)*100}%`;
  if(ledger.remaining===0&&!finished&&!unlimited()&&(held||mousePour)){stop();el('status').textContent='Pitcher empty. Refill or enjoy your cup.';}
  if(experimental&&liquid!.cup.full&&(held||mousePour||replayEnd)){stop();el('status').textContent='Cup full. Emission stopped at capacity; fresh cup to continue.';}
  if(cozyMode&&cozy.full&&cozy.stopAtRim&&(held||mousePour)){stop();el('status').textContent='At the rim · pour stopped by your assist.';}
@@ -299,6 +307,8 @@ function frame(ms:number){
   el('diagnostics').textContent=JSON.stringify({...cozyMode?cozy.inspect():experimental?liquid!.metrics():fluid.metrics(),remaining:ledger.remaining,active:pouring,stroke:visual.stroke,requestedClearanceMm:clearanceMeters(controlPhysical.height)*1000,actualClearanceMm:currentJet.clearanceM*1000,actualFlowMlS:currentJet.actualFlowMlS,fillMl:cozyMode?cozy.fillMl:experimental?liquid!.cup.fillMl:undefined,rimAssistance:el<HTMLInputElement>('rimAccess').checked,equipmentModel,controlResponse,bufferMs:INPUT_BUFFER*1000,latePackets:timeline.latePackets,droppedStalls:dropped},null,2);frames=0;simMs=uploadMs=renderMs=0;report=now;
  }requestAnimationFrame(frame);
 }
+function closeDocks(){for(const [id,name] of [['dockAdjust','dock-adjusting'],['dockCup','dock-cup'],['dockCorner','corner-open'],['dockRadio','radio-open']]){document.querySelector('main')!.classList.remove(name);el(id).setAttribute('aria-expanded','false');}}
+for(const [id,name] of [['dockAdjust','dock-adjusting'],['dockCup','dock-cup'],['dockCorner','corner-open'],['dockRadio','radio-open']])el(id).onclick=()=>{const main=document.querySelector('main')!,open=!main.classList.contains(name);stop(true,'dock');closeDocks();main.classList.toggle(name,open);el(id).setAttribute('aria-expanded',String(open));if(id==='dockRadio'&&open&&el('cafeRadio').classList.contains('collapsed'))el('radioCollapseBtn').click();};
 function syncReplayControls(visual:PourState){
  const controls=replayControls(visual,cozyControls()?'cozy':'advanced');
  range.value=String(controls.flow);heightRange.value=String(controls.height);intention=controls.intention;
@@ -311,7 +321,7 @@ function changeBearing(delta:number){el<HTMLInputElement>('bearing').value=Strin
 el<HTMLInputElement>('bearing').oninput=()=>{updateBearingCue();emit();};
 el('bearingLeft').onclick=()=>changeBearing(-15);el('bearingRight').onclick=()=>changeBearing(15);
 const studio=mountCornerStudio(view,()=>{
- sealRecording();stop(true,'studio');paused=true;
+ sealRecording();stop(true,'studio');closeDocks();paused=true;
  // Synchronize display fields at this completed simulation boundary before copying.
  if(cozyMode)cozy.sync();else if(experimental)liquid!.sync();else fluid.sync('milk',presets[preset.value].opacity);
  view.coffeeMaterial.uniforms.field.value=cozyMode?cozy.fieldTexture:experimental?liquid!.texture:fluid.texture;
@@ -319,9 +329,13 @@ const studio=mountCornerStudio(view,()=>{
  view.setEnjoy(true);
  return {sourceModel:cozyMode?String(cozy.inspect().mode):experimental?String(liquid!.metrics().mode):'existing-surface',tick:clock,fillMl:cozyMode?cozy.fillMl:experimental?liquid!.cup.fillMl:55};
 },()=>{paused=document.hidden;stop(true,'studio-close');view.setEnjoy(finished);});
+for(const [id,value] of Object.entries(RECOMMENDED_SETTINGS))el<HTMLSelectElement>(id).value=value;
+el<HTMLInputElement>('rimAccess').checked=FRESH_CUP.rimAccess;
+el<HTMLInputElement>('stopAtRim').checked=FRESH_CUP.stopAtRim;
 const requestedMode=new URLSearchParams(location.search).get('mode');
 if(requestedMode==='cozy'||requestedMode==='surface'||requestedMode==='volume')el<HTMLSelectElement>('mode').value=requestedMode;
 el('scheme').dispatchEvent(new Event('change'));
+el('quality').dispatchEvent(new Event('change'));
 el<HTMLSelectElement>('mode').dispatchEvent(new Event('change'));
 hint();requestAnimationFrame(frame);
 if(new URLSearchParams(location.search).has('verify'))import('./control-check');

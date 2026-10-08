@@ -101,7 +101,7 @@ export function setupMusic() {
 
   let currentIndex = 0;
   let shuffleMode = true;
-  let isCollapsed = false;
+  let isCollapsed = matchMedia('(max-width:649px), (max-height:500px)').matches;
   let previousVolume = 0.35;
   let temporaryMessageTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -119,7 +119,7 @@ export function setupMusic() {
       if (typeof saved.shuffle === 'boolean') {
         shuffleMode = saved.shuffle;
       }
-      if (typeof saved.collapsed === 'boolean') {
+      if (typeof saved.collapsed === 'boolean' && !matchMedia('(max-width:649px), (max-height:500px)').matches) {
         isCollapsed = saved.collapsed;
       }
     }

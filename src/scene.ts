@@ -87,9 +87,10 @@ export function createScene(host: HTMLElement) {
    camera.position.set(0,-2,9);camera.lookAt(0,0,0);
    const controlHeight=document.querySelector('.controls')?.getBoundingClientRect().height||240;
    document.documentElement.style.setProperty('--controlHeight',`${controlHeight}px`);
-   const side=width>=650&&height<=650,top=height<=650?64:85,bottom=side?24:controlHeight+28,available=Math.max(100,height-top-bottom);
-   const usableWidth=side?width-370:width,diameter=Math.min(usableWidth*.76,available*.78,400),scale=diameter/2;
-   const center=top+available*.52,offset=(center-height/2)/scale,offsetX=side?(width/2-usableWidth/2)/scale:0;
+   const side=width>=650&&height<=650,top=width<650?60:height<=650?55:85,bottom=side?50:controlHeight+30,available=Math.max(100,height-top-bottom);
+   const dockWidth=document.querySelector('.controls')?.getBoundingClientRect().width||304;
+   const usableWidth=side?width-dockWidth-28:width,diameter=Math.min(usableWidth*.65,available*.80,400),scale=diameter/2;
+   const center=top+available*.52,offset=(center-height/2)/scale,offsetX=(side?(width/2-usableWidth/2)/scale:0)+.07;
    camera.left=-width/(2*scale)+offsetX;camera.right=width/(2*scale)+offsetX;
    camera.top=height/(2*scale)+offset;camera.bottom=-height/(2*scale)+offset;camera.updateProjectionMatrix();
  };

@@ -16,6 +16,7 @@ button.onclick=async()=>{
  const originals=[canvas,pad].map(t=>({target:t,set:t.setPointerCapture,release:t.releasePointerCapture,has:t.hasPointerCapture}));
  for(const t of [canvas,pad]){t.setPointerCapture=()=>{};t.releasePointerCapture=()=>{};t.hasPointerCapture=()=>false;}
  try{
+  const padMode=document.getElementById('padMode') as HTMLSelectElement;padMode.value='settings';padMode.dispatchEvent(new Event('change'));
   reset();const c=canvas.getBoundingClientRect(),p=pad.getBoundingClientRect(),x=c.left+c.width*.5,y=c.top+c.height*.4;
   const flow=document.getElementById('flow') as HTMLInputElement,height=document.getElementById('height') as HTMLInputElement;
   const cozy=(document.getElementById('scheme') as HTMLSelectElement).value==='cozy';
@@ -42,12 +43,26 @@ button.onclick=async()=>{
   reset();sample(pad,'pointerdown',94,p.left+p.width*.5,p.top+p.height*.5);await wait(80);window.dispatchEvent(new Event('resize'));const resized=budget();await wait(100);check('resize cancels the pour and resumes dry',Math.abs(budget()-resized)<1e-6);
   reset();await wait(80);const dryBudget=budget();document.getElementById('finishIntent')!.click();await wait(80);check('intention switch never starts pouring',Math.abs(budget()-dryBudget)<1e-6);document.getElementById('drawIntent')!.click();
   if(!cozy){const drawFlow=flow.value,drawHeight=Number(height.value);document.getElementById('finishIntent')!.click();check('advanced Finish raises and reduces the stream',Number(height.value)>drawHeight&&Number(flow.value)<Number(drawFlow));document.getElementById('drawIntent')!.click();check('advanced intent cycling preserves delivery',flow.value===drawFlow&&Number(height.value)===drawHeight);}
-  document.getElementById('finishIntent')!.click();reset();check('Fresh cup returns to Draw',document.getElementById('drawIntent')!.getAttribute('aria-pressed')==='true');
+  document.getElementById('finishIntent')!.click();reset();check('Fresh cup preserves the selected Finish controls',document.getElementById('finishIntent')!.getAttribute('aria-pressed')==='true');
   reset();const before=flow.value;
   flow.dispatchEvent(new KeyboardEvent('keydown',{bubbles:true,code:'KeyA'}));check('editing a field does not consume flow shortcuts',flow.value===before);
   flow.value='.65';height.value='.08';flow.dispatchEvent(new Event('input'));height.dispatchEvent(new Event('input'));
   sample(canvas,'pointerdown',5,x,y,'mouse');await wait(8);sample(canvas,'pointerup',5,x,y,'mouse');await wait(80);
   check('sub-frame mouse tap is not lost',budget()<100&&budget()>99);
+  reset();padMode.value='aim';padMode.dispatchEvent(new Event('change'));await wait(80);
+  const padRect=pad.getBoundingClientRect(),dot=document.getElementById('padDot')!,aimFlow=flow.value,aimHeight=height.value;
+  const initialX=parseFloat(dot.style.left),initialY=parseFloat(dot.style.top);
+  sample(pad,'pointerdown',95,padRect.left+padRect.width*.5,padRect.top+padRect.height*.5);await wait(90);
+  check('aim pad pickup does not teleport the spout',Math.abs(parseFloat(dot.style.left)-initialX)<.01&&Math.abs(parseFloat(dot.style.top)-initialY)<.01);
+  sample(pad,'pointermove',95,padRect.left+padRect.width*.5+18,padRect.top+padRect.height*.5-9);await wait(100);
+  check('aim pad moves spout right and up',parseFloat(dot.style.left)>initialX&&parseFloat(dot.style.top)<initialY);
+  check('aim pad preserves Advanced flow and height',flow.value===aimFlow&&height.value===aimHeight);
+  sample(pad,'pointerup',95,padRect.left,padRect.top);await wait(100);const aimStopped=budget();await wait(100);
+  check('lifting the steering pad stops milk',Math.abs(budget()-aimStopped)<1e-6);
+  const retainedX=dot.style.left,retainedY=dot.style.top;
+  sample(pad,'pointerdown',96,padRect.left+10,padRect.top+10);await wait(80);
+  check('aim pad re-clutch retains the last spout position',dot.style.left===retainedX&&dot.style.top===retainedY);
+  sample(pad,'pointercancel',96,padRect.left,padRect.top);await wait(80);
   document.getElementById('finish')!.click();await wait(80);
   check('finish hides active controls',getComputedStyle(document.getElementById('pourControls')!).display==='none');
   check('finish exposes fresh cup',getComputedStyle(document.getElementById('reset')!).display!=='none');reset();
