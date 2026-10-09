@@ -5,6 +5,7 @@ import type {LiquidSource} from './cozy-liquid.ts';
  * Resolved separately so millimetre-wide crema folds survive the bulk grid.
  * This does not own liquid volume. No pattern or brush shape is prescribed. */
 export class LatteFilm {
+ milkQuality=1;
  response:'legacy'|'local'|'taper'|'fine'='local';
  readonly size:number;readonly white:Float32Array;readonly mask:Uint8Array;
  private forward:Float32Array;private reverse:Float32Array;
@@ -12,6 +13,25 @@ export class LatteFilm {
  private cells:number[]=[];
  constructor(size=160){this.size=size;const count=size*size;this.white=new Float32Array(count);this.mask=new Uint8Array(count);this.forward=new Float32Array(count);this.reverse=new Float32Array(count);this.vx=new Float32Array(count);this.vy=new Float32Array(count);for(let y=0;y<size;y++)for(let x=0;x<size;x++)if(Math.hypot((x+.5)/size-.5,(y+.5)/size-.5)<.485){const i=y*size+x;this.mask[i]=1;this.cells.push(i);}}
  reset(){this.white.fill(0);this.vx.fill(0);this.vy.fill(0);}
+ /** A dry tool transports existing surface pigment; it never deposits milk. */
+ etch(from:{x:number;y:number},to:{x:number;y:number},tool:'pick'|'spoon'){
+  if(![from.x,from.y,to.x,to.y].every(Number.isFinite))return;
+  const distance=Math.hypot(to.x-from.x,to.y-from.y),radius=tool==='pick'?.018:.048;
+  if(distance<1e-7)return;
+  const steps=Math.min(160,Math.ceil(distance/(radius*.35))),n=this.size;
+  const dx=(to.x-from.x)/steps,dy=(to.y-from.y)/steps;
+  for(let step=1;step<=steps;step++){
+   const x=from.x+dx*step,y=from.y+dy*step;if(Math.hypot(x-.5,y-.5)>.47)continue;
+   this.forward.set(this.white);
+   for(const i of this.cells){const px=(i%n+.5)/n,py=(Math.floor(i/n)+.5)/n,r2=(px-x)**2+(py-y)**2;
+    if(r2>radius*radius*9)continue;
+    const weight=Math.exp(-r2/(2*radius*radius))*.92;
+    const sx=px-dx*weight,sy=py-dy*weight;
+    if(Math.hypot(sx-.5,sy-.5)>=.48)continue;
+    this.white[i]=clamp(this.sample(this.forward,sx*n-.5,sy*n-.5),0,1);
+   }
+  }
+ }
  private sample(field:Float32Array,x:number,y:number){const n=this.size;x=clamp(x,0,n-1);y=clamp(y,0,n-1);const a=Math.floor(x),b=Math.floor(y),fx=x-a,fy=y-b;return field[b*n+a]*(1-fx)*(1-fy)+field[b*n+Math.min(a+1,n-1)]*fx*(1-fy)+field[Math.min(b+1,n-1)*n+a]*(1-fx)*fy+field[Math.min(b+1,n-1)*n+Math.min(a+1,n-1)]*fx*fy;}
  step(sources:LiquidSource[],dt:number){
   if(dt<=0)return;
@@ -77,7 +97,7 @@ export class LatteFilm {
    this.white[i]*=Math.exp(-amount*(1-low)*(this.response==='legacy'?.025:.006)/4*Math.exp(-r2/(8*r*r)));
    const width=low+(1-low)*.36;
    const exchange=1-Math.exp(-amount*(low*.035+(1-low)*(this.response==='legacy'?.008:.0005))/width*Math.exp(-r2/(2*r*r*width)));
-   this.white[i]+=(1-this.white[i])*exchange;
+   this.white[i]+=(1-this.white[i])*exchange*(.35+.65*clamp(this.milkQuality,0,1));
   }
  }
  metrics(){let min=1,max=0,area=0,contrast=0;for(const i of this.cells){const w=this.white[i];min=Math.min(min,w);max=Math.max(max,w);if(w>.5)area++;if(w>.1&&w<.9)contrast++;}return {grid:this.size,minPurity:min,maxPurity:max,whiteAreaMm2:area*(UV_LENGTH_M/this.size)**2*1e6,interfaceCells:contrast};}

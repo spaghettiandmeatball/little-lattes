@@ -1,3 +1,27 @@
+## Brewing and milk station — 8 October 2026
+
+Open **Corner → Brew & steam**, or tap the espresso machine or pour-over station. Espresso grinds for a short moment and then extracts into cups; pour-over animates a kettle, bloom and carafe. **Stop & serve** lets you end extraction early; completion prepares a fresh coffee in Cup and replaces its current art. Milk supply carries over. These are short game rituals, with extraction changing coffee appearance rather than a detailed brewing simulation.
+
+**Milk steam** has a separate purge and a start/stop wand. Stop around 5–9 seconds for silky microfoam; early stops give thin milk and longer steaming gives coarse foam. The prepared texture affects foam deposition and surface detail in subsequent pours, and is included in pour recordings. Completing steaming refills your jug. The temperature display is a game gauge. Animated steam clouds, bubbles and user-supplied machine sounds accompany the interaction; **Machine sounds** mutes effects independently of radio. Closing, leaving Corner, hiding the page or losing focus stops the machine and sound.
+
+## Foam tools and material detail — 8 October 2026
+
+In **Cup → Adjust → Surface tool**, choose **Foam pick** for fine pulled lines or **Foam spoon** for broad swirls, then drag directly on the coffee. Tools move the existing milk surface without adding milk or spending the pitcher supply. **Undo stroke** restores the last gesture. Choose **Milk pour** to resume pouring. Tools work in Full 3D and Free surface; they are also displayed beside the jug on the counter.
+
+Coffee now has stable crema mottling, sparse microbubbles, subtle surface relief and distinct wet-coffee/foam reflections. Ceramic glaze, oak, plaster and steel have surface and roughness detail. These are procedural materials; the café remains a stylized scene. Foam etching edits the optical surface rather than simulating a submerged rigid tool, and etching is not included in input replay recordings. Frozen cups and photos retain the edited art. Validation: 68 tests, type checking and production build passed.
+
+## Counter workshop — 8 October 2026
+
+**Actions → Next cup** keeps the finished latte on the counter and prepares another cup, carrying over remaining milk and pouring controls. Up to six finished cups stay in the current session; take a photo before reloading. **Steam & refill** animates the selected milk jug lifting, filling and steaming.
+
+In **Corner → Mug & jug**, choose Small, Standard or Large, jug shape and finish, and whether to hide the jug while pouring. Sizes affect Corner and photos; the pouring vessel retains its calibrated capacity. **Decorate** adds movable plants, flowers, books, candles and lamps, and swaps installed lighting. Drag decorations directly on the counter to place them; the layout saves locally. The counter also displays the selected jug, tamper, portafilter and brush. See [workshop details](docs/counter-workshop-2026-10-08.md).
+
+## Explore the café — 8 October 2026
+
+Use the **Cup / Corner** switch. **Cup** is the pouring view; **Corner** opens directly into free roam with **Decorate**, **My pours**, and **Take photo** available. Closing any option returns to Corner, retaining the camera and mug pose. Choose Cup to resume the preserved pour. Escape also switches between views. Drag the room to orbit, scroll away from the mug to zoom, and right-drag or two fingers on the room to pan. Drag the mug to turn it; scroll over it or pinch it to resize from 65% to 140%. WASD moves the camera, R/F raises or lowers it, and Shift makes smaller steps. Home resets the view/mug; P captures the current composition. Phone pouring actions are under **Actions**. Mug sizes stage viewing/photos; pouring retains the calibrated vessel. Real multitouch remains unverified on phone hardware.
+
+The world now includes counter joinery and pulls, floorboards, a woven runner, stools, shelf brackets and books, a framed print, espresso-station details, towels and glass bean storage. See [world controls and verification](docs/world-exploration-2026-10-08.md). Mug scaling stages the scene; variable physical vessel capacity and cup tilting are still future work.
+
 ## Current corner and mobile build — 8 October 2026
 
 Advanced remains the default. The pouring pad now steers the spout; flow and height stay separate. On phones, a minimal dock opens adjustments, cup actions, room/gallery and radio only when needed. Decorate personalizes the room; Take photo freezes the actual cup and saves a 1080px shot into My pours. [Build details, evidence and limits](docs/fidelity-build-2026-10-08.md).
@@ -148,3 +172,5 @@ Sandbox remains the scope; puzzle, scoring and endless modes are future work. Mu
 
 These primary written sources support qualitative expectations, not measured frame-by-frame agreement or scientific calibration. No reference-video comparison was completed. The original proposal remains in `docs/build-plan.md`; the physics guide supplies current milestone context.
 
+
+Optional counter upgrades: in Corner → Decorate, choose La Marzocco or Fellow electric, or add a movable Pothos. The classic machine, kettle and plant layout remain defaults. Imported models load on selection and retain credits under Upgrade model credits; see public/models/README.md.

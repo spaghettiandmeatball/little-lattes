@@ -1,0 +1,10 @@
+<svg preserveAspectRatio="none" overflow="visible" style="display: block;" width="14" height="14" viewBox="0 0 14 14" fill="none" xmlns="http://www.w3.org/2000/svg">
+<g id="Status slot" clip-path="url(#clip0_0_49)">
+<path id="Progress indicator" d="M13 9.99995C12.3641 11.0277 11.4158 11.8564 10.275 12.3812C9.13431 12.9061 7.85239 13.1036 6.59137 12.9487C5.33036 12.7938 4.14689 12.2935 3.19063 11.511C2.23438 10.7286 1.54828 9.69911 1.2191 8.55284C0.889927 7.40657 0.932458 6.19497 1.34132 5.07126C1.75018 3.94755 2.507 2.96219 3.51608 2.2398C4.52517 1.5174 5.74118 1.09042 7.01036 1.01284C8.27954 0.935259 9.54487 1.21057 10.6463 1.80395" stroke="#354439" stroke-width="1.7" stroke-linecap="round"/>
+</g>
+<defs>
+<clipPath id="clip0_0_49">
+<rect width="14" height="14" fill="white"/>
+</clipPath>
+</defs>
+</svg>

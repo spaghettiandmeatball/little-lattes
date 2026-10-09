@@ -4,7 +4,7 @@ import type {PhotoSnapshot} from './photo-scene';
 import {photoCamera} from './photo-scene';
 
 export const canvasBlob=(canvas:HTMLCanvasElement)=>new Promise<Blob>((resolve,reject)=>canvas.toBlob(blob=>blob?resolve(blob):reject(Error('Image encoding failed.')),'image/png'));
-export async function capturePhoto(renderer:T.WebGLRenderer,snapshot:PhotoSnapshot,angle:number,portrait:boolean,framing:number){
+export async function capturePhoto(renderer:T.WebGLRenderer,snapshot:PhotoSnapshot,angle:number,portrait:boolean,framing:number,customCamera?:T.PerspectiveCamera){
  if(renderer.getContext().isContextLost())throw Error('The graphics connection was lost. Return to the cup and retry.');
  const width=1080,height=portrait?1350:1080;
  const linear=new T.WebGLRenderTarget(width,height,{type:T.HalfFloatType,samples:4});
@@ -12,7 +12,9 @@ export async function capturePhoto(renderer:T.WebGLRenderer,snapshot:PhotoSnapsh
  const pass=new OutputPass(),previous=renderer.getRenderTarget();
  const pixels=new Uint8Array(width*height*4);
  try{
-  renderer.setRenderTarget(linear);renderer.render(snapshot.scene,photoCamera(angle,width/height,framing));
+  const camera=customCamera?.clone()??photoCamera(angle,width/height,framing);
+  if(customCamera){camera.aspect=width/height;camera.zoom=1/framing;camera.updateProjectionMatrix();}
+  renderer.shadowMap.needsUpdate=true;renderer.setRenderTarget(linear);renderer.render(snapshot.scene,camera);
   // r180 renders linear HDR to offscreen targets. Apply ACES and sRGB once here.
   pass.render(renderer,output,linear,0,false);renderer.setRenderTarget(previous);
   await renderer.readRenderTargetPixelsAsync(output,0,0,width,height,pixels);
@@ -23,5 +25,5 @@ export async function capturePhoto(renderer:T.WebGLRenderer,snapshot:PhotoSnapsh
   const thumbnail=document.createElement('canvas');thumbnail.width=thumbnail.height=300;
   thumbnail.getContext('2d')!.drawImage(canvas,0,(height-width)/2,width,width,0,0,300,300);
   return {image:await canvasBlob(canvas),thumbnail:await canvasBlob(thumbnail),width,height};
- }finally{renderer.setRenderTarget(previous);pass.dispose();linear.dispose();output.dispose();}
+ }finally{renderer.shadowMap.needsUpdate=true;renderer.setRenderTarget(previous);pass.dispose();linear.dispose();output.dispose();}
 }

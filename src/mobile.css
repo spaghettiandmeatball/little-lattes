@@ -55,3 +55,34 @@
  main .controls,main.cozyControls .controls{width:240px}.dock-toolbar{flex-wrap:wrap}.dock-toolbar #dockAdjust{flex-basis:100%;min-height:30px}.dock-toolbar #dockCup,.dock-toolbar #dockCorner{flex:1}.dock-toolbar button{min-height:32px}main .controls #pour{height:90px;min-height:90px}main.dock-adjusting .controls .adjustments{grid-template-columns:1fr;gap:0}main.dock-adjusting .controls .adjustments>label{grid-template-columns:36px 1fr 48px;grid-template-rows:30px;align-items:center;gap:5px}main.dock-adjusting .controls .adjustments>label input{grid-area:1/2}main.dock-adjusting .controls .adjustments>label output{grid-area:1/3}main .corner-nav,main:has(.cafe-radio.collapsed) .corner-nav,main .cafe-radio,main .cafe-radio.collapsed{left:auto;right:12px;width:240px;bottom:calc(var(--controlHeight,185px) + 18px)}
 }
 @media(max-width:649px),(max-height:500px){#app main #hint,#app main #aimZone{display:none}}
+/* Direct room and mug gestures; only return/capture actions remain. */
+.world-open .controls,.world-open .corner-nav,.world-open>details,.world-open #hint,.world-open #aimZone{visibility:hidden}.world-open .cafe-radio{display:none!important}
+main>.world-actions{position:absolute;right:16px;bottom:max(18px,env(safe-area-inset-bottom));z-index:12;display:flex;gap:8px}
+.world-actions button{min-height:44px;padding:10px 15px;background:#f4eddfed;color:#354b3e;border:1px solid #b8c0ac;border-radius:12px;font:12px system-ui;backdrop-filter:blur(12px)}
+.world-actions #worldCapture{background:#3b5846;color:#f7ebd5;border-color:#80927c}
+.world-gesture-hint{position:absolute;left:16px;bottom:20px;max-width:calc(100% - 325px);margin:0;padding:9px 12px;border-radius:10px;background:#293e34ba;color:#f4e6ce;pointer-events:none;font:11px/1.5 system-ui;z-index:11}
+.world-open.studio-open>.world-actions,.world-open.studio-open>.world-gesture-hint{visibility:hidden}
+@media(max-width:649px){main>.world-actions{right:12px;left:12px;justify-content:center;bottom:max(12px,env(safe-area-inset-bottom))}.world-actions button{font-size:11px}.world-gesture-hint{left:12px;right:12px;bottom:68px;max-width:none;text-align:center;font-size:10px}}
+
+/* Cup is the pouring view; Corner is the free room with its options nearby. */
+.view-switch{position:absolute;z-index:10;right:16px;top:70px;display:flex;gap:3px;padding:4px;border:1px solid #e3d4b74d;border-radius:13px;background:#293e34de;backdrop-filter:blur(12px)}
+.view-switch button{min-height:38px;padding:7px 18px;border:0;border-radius:9px;background:transparent;color:#f4e6ce;font:12px system-ui}
+.view-switch button[aria-pressed=true]{background:#ead7b5;color:#293e34}
+.studio-open>.view-switch{visibility:hidden}
+.world-actions{flex-wrap:wrap}.world-gesture-hint{max-width:calc(100% - 350px)}
+@media(max-width:649px){.view-switch{right:12px;top:58px}.view-switch button{min-height:36px;padding:6px 16px}.world-gesture-hint{max-width:none}.world-actions button{padding:10px 12px}}
+
+/* Workshop selections and the expanded cup actions. */
+.decoration-inventory{display:grid;gap:9px;padding:18px 0 10px}.inventory-buttons{display:grid;grid-template-columns:1fr 1fr;gap:6px}.decoration-inventory p{font:11px/1.5 system-ui;color:#65735c}.jug-visibility{display:flex;align-items:center;gap:8px;font:12px/1.5 system-ui}.corner-studio .jug-visibility input{width:20px;height:20px;accent-color:#496650}.room-categories>small{font:11px/1.5 system-ui;color:#707766}.world-gesture-hint{max-width:calc(100% - 470px)}
+.actions{flex-wrap:wrap}.actions button{flex:1 1 28%;min-width:0}
+@media(max-width:649px){.world-gesture-hint{max-width:none;bottom:112px}.world-actions{max-width:420px;margin:0 auto;gap:6px}.world-actions button{flex:1 1 42%;min-height:40px}.world-open .view-switch{top:58px}.actions button{font-size:10px;flex:1 1 28%}}
+@media(min-width:650px) and (max-height:500px){main .world-gesture-hint{max-width:calc(100% - 450px);font-size:10px}.world-actions button{font-size:10px;padding:10px}}
+
+@media(min-width:650px) and (max-height:500px){main>.view-switch{right:130px;top:12px}}
+.surface-tools{display:flex;align-items:center;gap:8px;font:11px system-ui;color:#e8e4ce;margin:8px 0}.surface-tools select{flex:1;min-width:0;max-width:220px}.surface-tools button{font-size:10px;padding:7px;white-space:nowrap}.etching #pour{opacity:.35;pointer-events:none}.etching #stage canvas{cursor:crosshair;touch-action:none}
+@media(max-width:649px),(max-height:650px){main:not(.dock-adjusting):not(.etching) .surface-tools{display:none}.surface-tools{margin:3px 0;font-size:10px}.surface-tools select{max-width:none}}
+.surface-tools{flex-wrap:wrap}.surface-tools>label{flex:1 0 100%;font-size:10px;letter-spacing:.04em}.surface-tools>select{flex:1 1 110px;width:110px;max-width:none}.surface-tools>button{flex:0 0 auto}.etch-caption{display:none}.etching .etch-caption{display:block;flex:1 0 100%;font-size:10px;line-height:1.4;color:#e0dac2}.etching #pour,.etching .intentions,.etching .adjustments{display:none!important}.etching #pourControls{gap:0}
+.brewing-panel{position:absolute;z-index:16;right:16px;top:130px;width:300px;max-height:calc(100% - 230px);overflow:auto;padding:20px;border:1px solid #bfc4af;border-radius:18px;background:#f1eddeed;color:#344b3d;box-shadow:0 16px 50px #192d3344;backdrop-filter:blur(18px);font:12px system-ui}.brewing-panel[hidden]{display:none}.brewing-heading{display:flex;justify-content:space-between;align-items:center;font-size:9px;letter-spacing:.15em}.brewing-panel h2{font:24px Georgia;margin:10px 0 15px}.brewing-panel button{padding:10px;border-radius:9px;border:1px solid #bdc4ae;background:#faf6e9;color:#344b3d;cursor:pointer;font:11px system-ui}.brewing-heading button{font-size:20px;padding:2px 8px}.brew-tabs,.brew-buttons{display:flex;gap:6px;flex-wrap:wrap}.brew-tabs button{flex:1}.brew-tabs [aria-pressed=true],#startBrewing{background:#3c5947;color:#fff7e5}.brewing-panel button:disabled{opacity:.4;cursor:default}.brew-gauge{display:grid;gap:10px;margin:14px 0}.brew-gauge progress{width:100%;accent-color:#73884c}.brew-gauge strong{font-size:16px;font-weight:500}#brewCopy,#brewFeedback{line-height:1.55}#brewFeedback{min-height:38px}.brew-sound{display:flex;align-items:center;gap:8px;font-size:11px}.world-open.studio-open .brewing-panel{visibility:hidden}
+@media(max-width:649px){.brewing-panel{top:112px;right:12px;width:calc(100% - 64px);max-height:calc(100% - 320px);padding:18px}.world-open .world-gesture-hint{bottom:155px}.world-actions button{flex:1 1 28%;padding:8px}}
+@media(min-width:650px) and (max-height:600px){.brewing-panel{top:120px;max-height:calc(100% - 150px);width:270px}}
+@media(max-width:649px){.brewing-panel{top:auto;bottom:146px;max-height:285px}.brewing-panel h2{font-size:21px;margin:7px 0}.brewing-panel #brewFeedback{min-height:22px;margin:8px 0}.brewing-panel #brewCopy{font-size:11px;margin:8px 0}.brewing-panel .brew-gauge{margin:9px 0}}

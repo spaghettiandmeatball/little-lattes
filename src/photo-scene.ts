@@ -38,6 +38,6 @@ export const angleNames=['Art study','Cup portrait','Coffee corner'] as const;
 export function photoCamera(angle:number,aspect:number,framing=1){
  const camera=new T.PerspectiveCamera(33,aspect,.1,45);camera.up.set(0,0,1);
  const positions=[[.15,-1.7,7.4],[2.1,-4.1,6.3],[-2.6,-5.1,6.3]];
- const p=positions[angle%positions.length];camera.position.set(p[0],p[1],p[2]).multiplyScalar(framing);
- camera.lookAt(0,0,-.15);camera.updateProjectionMatrix();return camera;
+ const p=positions[angle%positions.length];camera.position.set(p[0]*framing,p[1]*framing-1.1,p[2]*framing);
+ camera.lookAt(0,-1.1,-.15);camera.updateProjectionMatrix();return camera;
 }

@@ -1,0 +1,67 @@
+/* Original Figma artwork; nine-slicing preserves the sculpted caps at wider labels. */
+:is(button:not(#pour),summary){
+ --button-art:url('/ui/recipe/rest.svg');--button-slice:22 38 42 50 fill;--button-width:16.5px 28.5px 31.5px 37.5px;--button-outset:4.5px 13.5px 22.5px 13.5px;
+ position:relative!important;isolation:isolate;box-sizing:border-box;min-width:76px!important;min-height:36px!important;height:auto!important;
+ padding:9px 10px 9px 28px!important;border:0!important;border-radius:0!important;background:transparent!important;color:#293e34!important;
+ font:400 12px/18px Inter,Arial,sans-serif!important;white-space:normal!important;text-overflow:clip!important;overflow:visible!important;
+ box-shadow:none!important;backdrop-filter:none!important;opacity:1!important;transform:none!important;cursor:pointer;text-align:center;
+}
+:is(button:not(#pour),summary)::before{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;border-style:solid;border-color:transparent;border-image-source:var(--button-art);border-image-slice:var(--button-slice);border-image-width:var(--button-width);border-image-outset:var(--button-outset)}
+:is(button:not(#pour),summary)::after{content:''!important;position:absolute!important;inset:0!important;width:auto!important;height:auto!important;border:0!important;background:url('/ui/recipe/pin.svg') 7px center/4px 4px no-repeat!important;pointer-events:none}
+:is(button:not(#pour),summary):hover{--button-art:url('/ui/recipe/hover.svg')}
+:is(button:not(#pour),summary):active,:is(button:not(#pour),summary)[aria-pressed=true],button[aria-selected=true]{--button-art:url('/ui/recipe/pressed.svg');--button-slice:16 20 17 32 fill;--button-width:12px 15px 12.75px 24px;--button-outset:0 0 1px 0}
+button:not(#pour)[aria-pressed=true],button:not(#pour)[aria-selected=true]{--button-art:url('/ui/recipe/selected.svg')!important;font-weight:600!important}
+button:not(#pour)[aria-pressed=true]::after,button:not(#pour)[aria-selected=true]::after{background:url('/ui/recipe/pin.svg') 7px center/4px 4px no-repeat,url('/ui/recipe/check.svg') 14px center/10px 10px no-repeat!important}
+button:not(#pour)[aria-busy=true]{pointer-events:none;--button-art:url('/ui/recipe/rest.svg')}
+button:not(#pour)[aria-busy=true]::after{background:url('/ui/recipe/pin.svg') 7px center/4px 4px no-repeat,url('/ui/recipe/loading.svg') 14px center/10px 10px no-repeat!important}
+button:not(#pour):disabled{--button-art:url('/ui/recipe/disabled.svg')!important;--button-slice:16 20 16 32 fill!important;--button-width:12px 15px 12px 24px!important;--button-outset:0!important;color:#7b8074!important;cursor:default}
+button:not(#pour):disabled::after{background:url('/ui/recipe/disabled-pin.svg') 7px center/4px 4px no-repeat!important}
+:is(button:not(#pour),summary):focus-visible{outline:none!important}
+.recipe-focus{position:absolute;inset:-7px;pointer-events:none;display:none}
+:focus-visible>.recipe-focus{display:block}
+.recipe-focus::before,.recipe-focus::after{content:'';position:absolute;inset:0;border:solid transparent;border-image-source:url('/ui/recipe/halo.svg');border-image-slice:20 27 20 39 fill;border-image-width:20px 27px 20px 39px}
+.recipe-focus::after{inset:2px;border-image-source:url('/ui/recipe/keyline.svg');border-image-slice:19 25 19 37 fill;border-image-width:19px 25px 19px 37px}
+summary{list-style:none}summary::-webkit-details-marker{display:none}
+
+/* Compact game chrome takes precedence over the reference kit's showcase sizing. */
+main{min-height:0}
+main>.view-switch{gap:8px!important;padding:0!important;background:none;border:0;right:12px!important;top:12px!important}
+.view-switch button{width:84px;flex:none}
+header{left:14px;transform:none;text-align:left}header h1{font-size:22px}header .eyebrow{display:none}
+main>details{top:58px;right:12px}main>details[open]{width:290px;padding:12px;max-height:calc(100dvh - 76px)}
+main>details:not([open]) summary{font-size:11px!important;width:auto;height:auto}
+main>.world-actions{gap:8px!important;bottom:12px;right:12px}
+.corner-more-menu{bottom:48px;width:170px;padding:10px;gap:8px;max-height:calc(100dvh - 120px);overflow:auto}
+button.station-target:not(#pour){transform:translate(-50%,-100%)!important;bottom:auto;min-width:100px!important}
+.station-hud{left:12px;bottom:12px;transform:none;width:360px;max-width:calc(100% - 24px);gap:10px;padding:8px 10px;background:#293e34df}
+.station-hud button{min-width:108px!important;flex:0 0 108px}.station-hud output{font-size:11px}.station-hud #dismissStation{display:none}
+.station-working>.world-actions,.station-working>.world-gesture-hint{visibility:hidden}
+.station-hud:has(#stopStation[hidden]){width:280px}
+.world-gesture-hint,main.world-open .world-gesture-hint{bottom:104px;max-width:calc(100% - 24px);font-size:10px;padding:4px 7px}
+.controls,.cozyControls .controls{width:280px!important;max-width:calc(100% - 16px)!important;padding:10px!important;max-height:min(440px,calc(100dvh - 90px));overflow:auto;gap:8px}
+.controls>.milk,.controls>progress,.controls>#status{display:none}
+.dock-toolbar{display:flex;gap:8px;flex-wrap:nowrap}.dock-toolbar #dockAdjust,.dock-toolbar #dockCup{flex:1 1 76px!important;min-height:36px!important}
+#dockCorner{display:none!important}.dock-toolbar small{display:none}
+main:not(.dock-adjusting) .controls :is(.intentions,.adjustments,.surface-tools,.milk-recipes){display:none}
+main:not(.dock-cup):not(.finished) .controls .actions{display:none}
+.controls .intentions,.controls .actions{display:flex;flex-wrap:wrap;gap:8px}.controls .intentions button,.controls .actions button{flex:1 1 76px}
+.controls #pourControls{justify-content:center}.controls #pour{width:100%;height:62px!important;min-height:62px!important;font-size:12px}
+.controls .bearing-control{flex-wrap:wrap;gap:6px}.controls .bearing-control button{min-width:44px!important;padding:9px!important}.controls .mini{flex-wrap:wrap;gap:8px}
+.controls .surface-tools{gap:6px;margin:0}.controls .surface-tools>label{flex-basis:auto}.controls .surface-tools>select{width:120px;font-size:10px}.controls .surface-tools button{min-width:100px!important}
+.milk-recipes{position:static!important;padding:0!important;width:auto!important;background:none!important;overflow:visible!important;color:#fff3df;font:11px/1.5 Inter,Arial,sans-serif}
+.milk-recipes>div{padding:8px 0 0}.milk-recipes label{justify-content:space-between;flex-wrap:wrap}.milk-recipes select{max-width:none}.milk-recipes p{line-height:1.5;margin:8px 0}.milk-recipes small{color:#d3d5c2;font-size:10px}
+.corner-studio.decorate-studio{position:fixed;right:8px;bottom:8px;left:auto;top:auto;width:320px;max-width:calc(100% - 16px);padding:12px;margin:0!important;max-height:calc(100dvh - 90px);border-radius:12px}
+.decorate-studio .studio-heading{margin-bottom:8px}.decorate-studio .studio-heading h2{font-size:20px;margin:3px 0}.decorate-studio .studio-close{display:none!important}
+.workshop-tabs{display:flex;gap:8px;padding:0;background:none;margin-bottom:10px}.workshop-tabs label{width:100%;justify-content:space-between;font-size:11px}.workshop-tabs select{max-width:none;width:190px;background:#fff3df;color:#293e34;border-color:#ba9051;min-height:32px}
+.decorate-studio #resetRoom{display:none}.decorate-studio:has(.workshop-tabs select option[value=room]:checked) #resetRoom{display:block}
+.room-categories{gap:8px}.room-categories fieldset{display:flex;flex-wrap:wrap;gap:8px;padding-bottom:8px}.room-categories .room-choice{flex:1 1 120px;gap:5px;font-size:11px!important}
+.inventory-buttons{grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:8px}.decorate-actions,.room-presets{display:flex;flex-wrap:wrap;gap:8px}.decorate-actions{padding-top:8px;bottom:-12px}.decorate-actions button{flex:1}
+.studio-heading{flex-wrap:wrap;gap:8px}.studio-heading .studio-close{width:auto;min-width:44px!important;padding:9px!important}.corner-studio{overflow:auto}
+.photo-tools{gap:8px}.photo-layout{grid-template-columns:minmax(0,1fr) 160px}.gallery-actions,.gallery-toolbar{display:flex;flex-wrap:wrap;gap:8px}.pour-grid{grid-template-columns:repeat(auto-fill,minmax(130px,1fr))}
+.cafe-radio,.cafe-radio.collapsed{width:280px;max-width:calc(100% - 24px)}
+.radio-header,.radio-header-actions,.radio-playback{flex-wrap:wrap;gap:8px}.radio-header-actions button,.radio-playback button{flex:1 1 44px;min-width:44px!important;padding:9px!important}.radio-volume-wrap{gap:8px}
+main:not(.radio-open) .cafe-radio{display:none}
+main.radio-open .cafe-radio{max-height:calc(100dvh - 100px);overflow:auto;top:58px!important;bottom:auto!important;left:12px!important;right:auto!important}
+@media(min-width:650px){.controls,.cozyControls .controls{left:auto;right:12px;transform:none}.corner-studio:not(.decorate-studio){max-width:680px;padding:16px}}
+@media(max-width:649px){header{display:block;left:12px}header h1{font-size:18px}main>.view-switch{gap:8px!important;transform:none;right:12px!important}main>.world-actions{right:12px;left:auto;transform:none;flex-wrap:nowrap}#worldCapture{display:block}.world-actions button{flex:none}.controls,.cozyControls .controls{width:300px!important;max-height:52dvh;padding:8px!important}.corner-studio.decorate-studio{max-height:55dvh;width:320px;padding:12px}.photo-layout{grid-template-columns:1fr}.photo-tools{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr))}.station-hud{gap:8px}.station-hud button{flex:0 0 108px}.world-gesture-hint,main.world-open .world-gesture-hint{bottom:104px;max-width:calc(100% - 24px);text-align:left;font-size:9px}.world-actions{max-width:none}}
+@media(pointer:coarse){:is(button:not(#pour),summary){min-height:40px!important;padding-top:11px!important;padding-bottom:11px!important}}

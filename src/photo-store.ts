@@ -1,5 +1,5 @@
 import type {RoomConfig} from './room-config';
-export type PhotoRecord={id:string;image:Blob;thumbnail:Blob;title:string;createdAt:number;width:number;height:number;favorite:boolean;deleted:boolean;snapshotId:string;room:RoomConfig;recipe:{version:1;angle:number;framing:number;setting:string;material:'liquid-pbr-r180-v1';sourceModel:string;tick:number;fillMl:number};};
+export type PhotoRecord={id:string;image:Blob;thumbnail:Blob;title:string;createdAt:number;width:number;height:number;favorite:boolean;deleted:boolean;snapshotId:string;room:RoomConfig;recipe:{version:1;angle:number;framing:number;setting:string;material:'liquid-pbr-r180-v1';sourceModel:string;tick:number;fillMl:number;camera?:unknown};};
 export type PhotoSummary=Omit<PhotoRecord,'image'>;
 let database:Promise<IDBDatabase>|undefined;
 function open(){
