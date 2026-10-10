@@ -57,3 +57,21 @@ test('room validation accepts stable catalog IDs and rejects paths, unknown vers
  assert.deepEqual(validateRoom({...defaultRoom,counter:'../../secret',cup:'toString'}),defaultRoom);
  assert.deepEqual(validateRoom(roomPresets['Quiet morning']),roomPresets['Quiet morning']);
 });
+
+
+test('roomy cup preserves chosen jug direction across the entire rim and center',()=>{
+ for(const bearing of [0,.7,Math.PI/2,Math.PI,-Math.PI/2])for(const radius of [0,.1,.3,.465])for(let k=0;k<120;k++){
+  const state={...initialState(),bearing,x:.5+radius*Math.cos(k*Math.PI/60),y:.5+radius*Math.sin(k*Math.PI/60),flow:.4,height:.1,pouring:true};
+  const jet=solveLatteJet(state,.4/60,1/60,{x:0,y:0},liquid,true,'roomy-pour-3');
+  const direction=bearingVector(bearing);
+  assert.ok(Math.abs(Math.sin(jet.pitcherYaw!)-direction.x)<1e-10);
+  assert.ok(Math.abs(-Math.cos(jet.pitcherYaw!)-direction.y)<1e-10);
+  assert.ok(jet.clearanceM<.005,`rim clearance ${jet.clearanceM}`);
+  assert.ok(Math.hypot(jet.spout.x+jet.incoming.x*jet.flightSeconds-jet.impact.x,jet.spout.y+jet.incoming.y*jet.flightSeconds-jet.impact.y)<1e-9);
+ }
+});
+test('roomy cup model survives recording export and import',()=>{
+ const recorder=new InputRecorder();recorder.begin(0,initialState(),defaults.Accessible,false);
+ recorder.recording!.environment={solver:'gpu-volume-film-4',prepared:false,initialCoffeeMl:55,initialMilkMl:0,stopAtRim:true,leftHanded:false,scheme:'advanced',intention:'draw',delivery:.4,equipmentModel:'roomy-pour-3'};
+ recorder.end(1);assert.ok(validRecording(JSON.parse(JSON.stringify(recorder.recording))));
+});

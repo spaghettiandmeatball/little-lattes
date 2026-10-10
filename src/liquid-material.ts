@@ -5,17 +5,19 @@ export type LiquidMaterial=T.MeshPhysicalMaterial & {uniforms:Record<string,T.IU
 /** Pinned Three r180 PBR extension: the transported field supplies pigment and roughness. */
 export function createLiquidMaterial():LiquidMaterial {
  const material=new T.MeshPhysicalMaterial({color:0xffffff,roughness:.2,metalness:0,ior:1.34,clearcoat:.12,clearcoatRoughness:.16,specularIntensity:.75}) as LiquidMaterial;
- material.uniforms={field:{value:null},debug:{value:0},volumeMode:{value:0},freeSurface:{value:0},surfacePurity:{value:0},heightField:{value:null},milkQuality:{value:1},brewStrength:{value:1}};
- material.customProgramCacheKey=()=> 'little-latte-liquid-pbr-r180-v2';
+ material.uniforms={field:{value:null},debug:{value:0},volumeMode:{value:0},freeSurface:{value:0},surfacePurity:{value:0},heightField:{value:null},meniscusM:{value:.0003},milkQuality:{value:1},brewStrength:{value:1}};
+ material.customProgramCacheKey=()=> 'little-latte-liquid-pbr-r180-v3';
  material.onBeforeCompile=shader=>{
   Object.assign(shader.uniforms,material.uniforms);
-  shader.vertexShader='varying vec2 latteUv; uniform sampler2D heightField; uniform float freeSurface;\n'+shader.vertexShader;
+  shader.vertexShader='varying vec2 latteUv; uniform sampler2D heightField; uniform float freeSurface,meniscusM;\n'+shader.vertexShader;
   shader.vertexShader=shader.vertexShader.replace('#include <begin_vertex>',`#include <begin_vertex>
     latteUv=uv;
-    if(freeSurface>.5) transformed.z+=texture2D(heightField,uv).r*${WORLD_PER_METER};`);
+    if(freeSurface>.5) transformed.z+=texture2D(heightField,uv).r*${WORLD_PER_METER};
+    float rimDistance=max(0.,(.485-length(uv-.5))*.082474);
+    transformed.z+=meniscusM*exp(-rimDistance/.00085)*${WORLD_PER_METER};`);
   shader.fragmentShader=`varying vec2 latteUv;
     uniform sampler2D field,heightField;
-    uniform float debug,volumeMode,freeSurface,surfacePurity,milkQuality,brewStrength;
+    uniform float debug,volumeMode,freeSurface,surfacePurity,milkQuality,brewStrength,meniscusM;
     float latteHash(vec2 p){return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453);}
     float latteNoise(vec2 p){vec2 i=floor(p),f=fract(p);f=f*f*(3.-2.*f);return mix(mix(latteHash(i),latteHash(i+vec2(1,0)),f.x),mix(latteHash(i+vec2(0,1)),latteHash(i+vec2(1,1)),f.x),f.y);}
     `+shader.fragmentShader;
@@ -32,19 +34,24 @@ export function createLiquidMaterial():LiquidMaterial {
     float micro=latteNoise(latteUv*730.)-.5;
     vec2 bubbleCell=floor(latteUv*210.),bubbleUv=fract(latteUv*210.)-.5;
     float seed=latteHash(bubbleCell),radius=.09+seed*.13;
-    float bubble=(1.-smoothstep(radius-.04,radius+.02,length(bubbleUv)))*step(.975,seed);
-    float bubbleRim=exp(-pow((length(bubbleUv)-radius)*42.,2.))*step(.975,seed);
-    float detail=(micro*.028-bubble*.14+bubbleRim*.1)*(1.-milk*.65);
+    float bubbleGate=mix(.975,.91,milk);
+    float bubble=(1.-smoothstep(radius-.04,radius+.02,length(bubbleUv)))*step(bubbleGate,seed);
+    float bubbleRim=exp(-pow((length(bubbleUv)-radius)*42.,2.))*step(bubbleGate,seed);
+    float detail=(micro*.028-bubble*mix(.14,.045,milk)+bubbleRim*mix(.1,.035,milk))*(1.-milk*.35);
     diffuseColor.rgb=debug>.5?composition.rgb:mix(espresso,vec3(.94,.88,.76),milk)*(1.+detail+micro*milk*(1.-milkQuality)*.12);
   `);
   shader.fragmentShader=shader.fragmentShader.replace('#include <roughnessmap_fragment>',`#include <roughnessmap_fragment>
-    roughnessFactor=mix(.15,.36,milk)+micro*.018+bubble*.08;`);
+    float wetRim=exp(-max(0.,(.485-length(latteUv-.5))*.082474)/.0012);
+    roughnessFactor=mix(.13,.34,milk)+micro*.018+bubble*.05-wetRim*.035*(1.-milk);`);
   shader.fragmentShader=shader.fragmentShader.replace('#include <normal_fragment_begin>',`#include <normal_fragment_begin>
     if(freeSurface>.5){
       float d=1./96.;
       vec2 slope=vec2(texture2D(heightField,latteUv+vec2(d,0)).r-texture2D(heightField,latteUv-vec2(d,0)).r,texture2D(heightField,latteUv+vec2(0,d)).r-texture2D(heightField,latteUv-vec2(0,d)).r)/(.082474*d*2.);
       normal=normalize(normal+mat3(viewMatrix)*vec3(-slope,0.));
     }
+    vec2 radial=latteUv-.5;
+    float rimSlope=meniscusM/.00085*exp(-max(0.,(.485-length(radial))*.082474)/.00085);
+    normal=normalize(normal+mat3(viewMatrix)*vec3(-normalize(radial+vec2(.000001))*rimSlope,0.));
     if(debug<.5){
       float relief=micro*.00013*(.3+milk*.7)+bubbleRim*.00018;
       vec3 qx=dFdx(vViewPosition),qy=dFdy(vViewPosition);

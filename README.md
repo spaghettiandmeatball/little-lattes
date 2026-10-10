@@ -174,3 +174,7 @@ These primary written sources support qualitative expectations, not measured fra
 
 
 Optional counter upgrades: in Corner → Decorate, choose La Marzocco or Fellow electric, or add a movable Pothos. The classic machine, kettle and plant layout remain defaults. Imported models load on selection and retain credits under Upgrade model credits; see public/models/README.md.
+
+## Moving 3D surface and direct tools — 9 October 2026
+
+Full 3D now couples bulk circulation to a moving hydrostatic surface, with foam damping, transported milk, a wet ceramic edge and finer surface detail. The pitcher, pick and spoon above the cup are clickable: the selected tool leaves the table. Dock tool buttons remain available. Rim assist turns the jug into the cup before lifting it. [Implementation, evidence and revert instructions](docs/liquid-realism-2026-10-09.md). The boundary is a reduced model; real-phone performance still needs testing.

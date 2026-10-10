@@ -16,6 +16,8 @@ export function mountCornerStudio(view:ReturnType<typeof createScene>,suspend:()
  let lastRecipe:{angle:number;portrait:boolean;framing:number;setting:string}|undefined;
  let rendered:Awaited<ReturnType<typeof capturePhoto>>|undefined,next:number|null=null,trash=false,activePhoto:PhotoRecord|undefined;
  let customCamera:T.PerspectiveCamera|undefined;
+ let galleryCursors:(number|null)[]=[null],galleryIndex=0;
+ let workshopGroup="equipment",workshopProperty="mug";
  let mode:'photo'|'gallery'|'decorate'|'equipment'='photo';
  const urls=new Set<string>();
  const objectURL=(blob:Blob)=>{const url=URL.createObjectURL(blob);urls.add(url);return url;};
@@ -27,7 +29,7 @@ export function mountCornerStudio(view:ReturnType<typeof createScene>,suspend:()
  window.addEventListener('counter-model-status',event=>{if(dialog.open&&mode==='decorate')message((event as CustomEvent<string>).detail);});
  const message=(text:string)=>{q('[role=status]').textContent=text;};
  function shell(title:string,subtitle:string){
-  releaseURLs();dialog.innerHTML=`<div class="studio-heading"><div><span class="eyebrow">LITTLE LATTE · YOUR CORNER</span><h2>${title}</h2><p>${subtitle}</p></div><button class="studio-close" aria-label="${world.active?'Return to Corner':'Return to Cup'}">✕</button></div><div class="studio-content"></div><p class="studio-message" role="status"></p>`;
+  releaseURLs();dialog.innerHTML=`<div class="studio-heading"><div><span class="eyebrow">LITTLE LATTE · YOUR CORNER</span><h2>${title}</h2><p>${subtitle}</p></div><button class="studio-close" aria-label="${world.active?'Return to Corner':'Return to Cup'}">Back</button></div><div class="studio-content"></div><p class="studio-message" role="status"></p>`;
   q('.studio-close').onclick=close;
  }
  function close(){if(busy){message('Finishing this shot…');return;}if(mode==='decorate'||mode==='equipment')view.applyRoom(room);snapshot?.dispose();snapshot=undefined;customCamera=undefined;rendered=undefined;releaseURLs();dialog.close();view.setDecorate(false);document.querySelector('main')!.classList.remove('studio-open');if(!world.active)resume();}
@@ -44,7 +46,7 @@ export function mountCornerStudio(view:ReturnType<typeof createScene>,suspend:()
  }
  function photo(fromWorld=false){
   customCamera=fromWorld?view.worldCamera():undefined;
-  open('photo');shell('A little moment, made by you.','Compose a keepsake of this cup.');
+  open('photo');shell('Keep this cup','Compose a keepsake of this cup.');
   try{snapshot=view.snapshot();}catch{message('The graphics connection is unavailable. Return to your cup and try again.');return;}
   angle=0;portrait=false;framing=1;setting='My corner';lastRecipe=undefined;
   q('.studio-content').innerHTML=`<div class="photo-layout"><div class="photo-stage"><img class="photo-preview" alt="Photograph of your captured latte art"></div><div class="photo-tools"><span class="section-label">THE COMPOSITION</span><button id="anotherAngle">Another angle · Art study</button><label>Setting<select id="photoSetting"><option>My corner</option>${Object.keys(roomPresets).map(name=>`<option>${name}</option>`).join('')}</select></label><small>Special settings stage this photo only.</small><label>Crop<select id="photoCrop"><option value="square">Square · 1:1</option><option value="portrait">Portrait · 4:5</option></select></label><label>Framing<input id="photoFrame" type="range" min=".94" max="1.16" step=".02" value="1"></label><label>Title<input id="photoTitle" maxlength="80" placeholder="A quiet little pour"></label><button id="saveShot" class="primary">Save shot</button><button id="downloadShot">Download image</button><small>Saved on this browser. Download favorites to keep a backup.</small></div></div>`;
@@ -67,13 +69,15 @@ export function mountCornerStudio(view:ReturnType<typeof createScene>,suspend:()
  async function galleryContent(){
   activePhoto=undefined;shell('My pours','Small rituals. Cups worth keeping.');
   q('.studio-content').innerHTML='<div class="gallery-toolbar"><span id="cupCount"></span><button id="showTrash">'+(trash?'Back to collection':'Recently removed')+'</button></div><div class="pour-grid"></div><button id="morePhotos" hidden>More pours</button>';
-  q('#showTrash').onclick=()=>{trash=!trash;void galleryContent();};next=null;
+  q('#showTrash').onclick=()=>{trash=!trash;void galleryContent();};next=null;galleryCursors=[null];galleryIndex=0;
+  const previous=document.createElement('button');previous.id='previousPhotos';previous.textContent='Previous';previous.hidden=true;previous.onclick=async()=>{if(galleryIndex===0)return;galleryIndex--;try{await page(galleryCursors[galleryIndex]);}catch{galleryIndex++;message('Could not load that page.');}};q('.studio-content').append(previous);
   try{q('#cupCount').textContent=`${await photoCount()} saved shots · private on this browser`;await page();}catch{message('Cannot open storage right now. Your cup is still here.');}
  }
- async function page(){
-  const result=await photoPage(next??Infinity,30,trash);next=result.next;
-  for(const photo of result.items){const button=document.createElement('button');button.className='pour-tile';button.setAttribute('aria-label',photo.title+(photo.favorite?' · favorite':''));const image=document.createElement('img');image.src=objectURL(photo.thumbnail);image.alt=photo.title;image.loading='lazy';button.append(image);const caption=document.createElement('span');caption.textContent=(photo.favorite?'♥ ':'')+photo.title;button.append(caption);button.onclick=()=>void detail(photo.id);q('.pour-grid').append(button);}
-  const more=q<HTMLButtonElement>('#morePhotos');more.hidden=!next;more.onclick=async()=>{more.disabled=true;try{await page();}catch{message('Could not load more photos. Try again.');}finally{more.disabled=false;}};
+ async function page(cursor:number|null=null){
+  const result=await photoPage(cursor??Infinity,7,trash);next=result.items.length>6?result.items[5].createdAt:null;
+  releaseURLs();q(".pour-grid").replaceChildren();q("#previousPhotos").hidden=galleryIndex===0;
+  for(const photo of result.items.slice(0,6)){const button=document.createElement('button');button.className='pour-tile';button.setAttribute('aria-label',photo.title+(photo.favorite?' · favorite':''));const image=document.createElement('img');image.src=objectURL(photo.thumbnail);image.alt=photo.title;image.loading='lazy';button.append(image);const caption=document.createElement('span');caption.textContent=(photo.favorite?'♥ ':'')+photo.title;button.append(caption);button.onclick=()=>void detail(photo.id);q('.pour-grid').append(button);}
+  const more=q<HTMLButtonElement>('#morePhotos');more.textContent="Next page";more.hidden=!next;more.onclick=async()=>{more.disabled=true;const cursor=next;galleryIndex++;galleryCursors[galleryIndex]=cursor;try{await page(cursor);}catch{galleryIndex--;message("Could not load more photos. Try again.");}finally{more.disabled=false;}};
   if(!q('.pour-grid').children.length)q('.pour-grid').innerHTML='<div class="gallery-empty"><span>☕</span><h3>'+ (trash?'Nothing removed.':'Your first keepsake awaits.')+'</h3><p>'+ (trash?'Removed shots stay here until you restore them.':'Make a pour, then choose Take photo.')+'</p></div>';
  }
  async function detail(id:string){
@@ -93,6 +97,7 @@ export function mountCornerStudio(view:ReturnType<typeof createScene>,suspend:()
   open(equipmentOnly?'equipment':'decorate');view.setDecorate(true);draft=structuredClone(room);shell(equipmentOnly?'Mug & jug':'Your corner',equipmentOnly?'Choose a mug size, your jug, and what you see while pouring.':'Add lights, plants and objects. Drag decorations around the counter after closing this panel.');
   const content=q('.studio-content');
   content.innerHTML='<nav class="workshop-tabs" aria-label="Decoration categories"></nav><div class="room-presets"></div><div class="room-categories"></div><div class="decoration-inventory"></div><div class="decorate-actions"><button class="primary" id="applyRoom">Apply</button><button id="cancelRoom">Cancel</button><button id="resetRoom">Reset room</button></div>';
+  dialog.insertBefore(q('.decorate-actions'),q('.studio-message'));
   const refresh=()=>{view.applyRoom(draft);for(const button of Array.from(dialog.querySelectorAll<HTMLButtonElement>('[data-category]')))button.setAttribute('aria-pressed',String(draft[button.dataset.category as keyof RoomConfig]===button.dataset.choice));};
   for(const [name,config] of Object.entries(roomPresets)){const button=document.createElement('button');button.textContent=name;button.onclick=()=>{draft=structuredClone(config);refresh();};q('.room-presets').append(button);}
   for(const [category,choices] of Object.entries(roomCatalog)){
@@ -112,8 +117,13 @@ export function mountCornerStudio(view:ReturnType<typeof createScene>,suspend:()
    q('#clearKeptCups').onclick=()=>{view.clearKeptCups();message('Finished cups cleared. Download photos before clearing cups you want to keep.');};count();
   }else q('.room-presets').hidden=true;
   const tabs=q('.workshop-tabs');
-  const selectGroup=(group:string)=>{for(const element of Array.from(dialog.querySelectorAll<HTMLElement>('[data-group]')))element.hidden=element.dataset.group!==group;q('.room-presets').hidden=group!=='room';inventory.hidden=group!=='objects';tabs.querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.tab===group)));};
-  if(!equipmentOnly){const label=document.createElement('label');label.textContent='Customize';const select=document.createElement('select');select.setAttribute('aria-label','Decoration category');for(const [id,name] of [['equipment','Equipment'],['room','Room'],['objects','Objects']]){const option=document.createElement('option');option.value=id;option.textContent=name;select.append(option);}select.onchange=()=>selectGroup(select.value);label.append(select);tabs.append(label);selectGroup('equipment');}else tabs.hidden=true;
+  const categoryNav=document.createElement('div');categoryNav.className='workshop-category-tabs';categoryNav.setAttribute('role','group');categoryNav.setAttribute('aria-label','Customize your corner');tabs.append(categoryNav);
+  const propertyLabel=document.createElement('label');propertyLabel.className='workshop-property';propertyLabel.textContent='Choose';const property=document.createElement('select');property.setAttribute('aria-label','Customize category');propertyLabel.append(property);tabs.append(propertyLabel);
+  const categories:Record<string,{id:string;label:string;keys:string[]}[]>={equipment:[{id:'mug',label:'Mug & glaze',keys:['mugSize','cup']},{id:'jug',label:'Jug & finish',keys:['jugShape','pitcher']},...equipmentOnly?[]:[{id:'gear',label:'Brewing equipment',keys:['machine','kettle']}]],room:[{id:'surfaces',label:'Counter & walls',keys:['counter','wall']},{id:'plants',label:'Plants & pots',keys:['plants','pots']},{id:'lighting',label:'Light & fixtures',keys:['light','fixture']},{id:'details',label:'Personal touches',keys:['objects']}],objects:[]};
+  const showProperty=()=>{workshopProperty=property.value;const keys=categories[workshopGroup].find(p=>p.id===property.value)?.keys||[];for(const fieldset of Array.from(dialog.querySelectorAll<HTMLElement>('.room-categories fieldset'))){fieldset.hidden=!Array.from(fieldset.querySelectorAll<HTMLElement>('[data-category]')).some(b=>keys.includes(b.dataset.category!));}jugLabel.hidden=property.value!=='jug'||workshopGroup!=='equipment';note.hidden=true;inventory.hidden=workshopGroup!=='objects';q('.room-presets').hidden=true;propertyLabel.hidden=workshopGroup==='objects';};
+  function chooseGroup(group:string){workshopGroup=group;property.replaceChildren();for(const item of categories[group]){const option=document.createElement('option');option.value=item.id;option.textContent=item.label;property.append(option);}if(categories[group].some(item=>item.id===workshopProperty))property.value=workshopProperty;categoryNav.querySelectorAll('button').forEach(button=>button.setAttribute('aria-pressed',String(button.dataset.tab===group)));showProperty();}
+  for(const [id,label] of equipmentOnly?[['equipment','Equipment']]:[['equipment','Equipment'],['room','Room'],['objects','Objects']]){const button=document.createElement('button');button.textContent=label;button.dataset.tab=id;button.onclick=()=>chooseGroup(id);categoryNav.append(button);}
+  categoryNav.hidden=equipmentOnly;property.onchange=showProperty;chooseGroup(equipmentOnly?'equipment':workshopGroup);
   q('#applyRoom').onclick=()=>{try{saveRoom(draft);room={...draft};close();}catch{message('Room storage is unavailable. You can keep previewing, or cancel to restore your saved room.');}};
   q('#cancelRoom').onclick=close;q('#resetRoom').onclick=()=>{draft=structuredClone(defaultRoom);refresh();message('Default room preview. Apply to keep it.');};refresh();
  }

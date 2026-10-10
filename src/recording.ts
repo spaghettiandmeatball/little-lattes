@@ -10,7 +10,7 @@ export type Recording = {
   unlimited:boolean;
   events:PourEvent[];
   skips:{from:number;to:number}[];
-  environment?:{solver:string;prepared:boolean;initialCoffeeMl:number;initialMilkMl:number;stopAtRim:boolean;scheme:'cozy'|'advanced';intention:'draw'|'finish'|'mix';delivery:number;leftHanded:boolean;rimAccess?:boolean;equipmentModel?:'rim-binary-1'|'adaptive-center-1';controlResponse?:'smooth-1'|'dry-ready-1';milkQuality?:number};
+  environment?:{solver:string;prepared:boolean;initialCoffeeMl:number;initialMilkMl:number;stopAtRim:boolean;scheme:'cozy'|'advanced';intention:'draw'|'finish'|'mix';delivery:number;leftHanded:boolean;rimAccess?:boolean;equipmentModel?:'rim-binary-1'|'adaptive-center-1'|'adaptive-pour-2'|'roomy-pour-3';controlResponse?:'smooth-1'|'dry-ready-1';milkQuality?:number};
 };
 
 function validState(s:PourState):boolean {
@@ -38,8 +38,8 @@ export function validRecording(data:unknown):data is Recording {
     validState(e) && Number.isFinite(e.time) && Number.isFinite(e.received) &&
     e.time>=-2/60 && e.received!>=e.time && e.received!<=r.duration+.1);
   const env=r.environment;
-  const validEnvironment=!env||(['hydrostatic-two-layer-1','hydrostatic-two-layer-2','hydrostatic-film-3','hydrostatic-film-4','hydrostatic-film-5','gpu-volume','gpu-volume-film-1','gpu-volume-film-2','gpu-volume-film-3','existing-surface'].includes(env.solver)&&typeof env.prepared==='boolean'&&Number.isFinite(env.initialCoffeeMl)&&env.initialCoffeeMl>=0&&Number.isFinite(env.initialMilkMl)&&env.initialMilkMl>=0&&typeof env.stopAtRim==='boolean'&&typeof env.leftHanded==='boolean'&&['cozy','advanced'].includes(env.scheme)&&['draw','finish','mix'].includes(env.intention)&&Number.isFinite(env.delivery)&&env.delivery>=0&&env.delivery<=1);
-  return (!env||env.milkQuality===undefined||(Number.isFinite(env.milkQuality)&&env.milkQuality>=0&&env.milkQuality<=1)) && validSkips && validEvents && validEnvironment && (!env||env.rimAccess===undefined||typeof env.rimAccess==='boolean') && (!env||env.equipmentModel===undefined||['rim-binary-1','adaptive-center-1'].includes(env.equipmentModel)) && (!env||env.controlResponse===undefined||['smooth-1','dry-ready-1'].includes(env.controlResponse));
+  const validEnvironment=!env||(['hydrostatic-two-layer-1','hydrostatic-two-layer-2','hydrostatic-film-3','hydrostatic-film-4','hydrostatic-film-5','gpu-volume','gpu-volume-film-1','gpu-volume-film-2','gpu-volume-film-3','gpu-volume-film-4','existing-surface'].includes(env.solver)&&typeof env.prepared==='boolean'&&Number.isFinite(env.initialCoffeeMl)&&env.initialCoffeeMl>=0&&Number.isFinite(env.initialMilkMl)&&env.initialMilkMl>=0&&typeof env.stopAtRim==='boolean'&&typeof env.leftHanded==='boolean'&&['cozy','advanced'].includes(env.scheme)&&['draw','finish','mix'].includes(env.intention)&&Number.isFinite(env.delivery)&&env.delivery>=0&&env.delivery<=1);
+  return (!env||env.milkQuality===undefined||(Number.isFinite(env.milkQuality)&&env.milkQuality>=0&&env.milkQuality<=1)) && validSkips && validEvents && validEnvironment && (!env||env.rimAccess===undefined||typeof env.rimAccess==='boolean') && (!env||env.equipmentModel===undefined||['rim-binary-1','adaptive-center-1','adaptive-pour-2','roomy-pour-3'].includes(env.equipmentModel)) && (!env||env.controlResponse===undefined||['smooth-1','dry-ready-1'].includes(env.controlResponse));
 }
 
 export class InputRecorder {

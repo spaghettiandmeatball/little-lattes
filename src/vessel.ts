@@ -9,3 +9,7 @@ export const PITCHER = {
   rimHeadroomM: .024,
   accessBlendM: .008,
 } as const;
+
+// Interaction-only enlarged bowl: the displayed cup and liquid units stay unchanged.
+// Equivalent to enlarging the clearance cup 2x, then fitting it back to the table.
+export const POUR_ACCESS_SCALE = 2;

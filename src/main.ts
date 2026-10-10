@@ -1,8 +1,11 @@
 import './style.css';
+import {detailAim} from './tool-controls';
 import './mobile.css';
 import './world-ui.css';
 import './recipe-buttons.css';
 import './world-pieces.css';
+import './scene-first.css';
+import {mountSceneFirstUI} from './scene-first-ui';
 import {installRecipeButtons} from './recipe-buttons';
 import {milkRecipes,milkRecipeQuality,milkGuide,type MilkRecipe} from './milk-recipes';
 import * as T from 'three';
@@ -10,7 +13,7 @@ import {createScene} from './scene';
 import {Fluid} from './fluid';
 import {defaults,MilkLedger,validPreset,type Preset} from './model';
 import {InputTimeline,initialState,INPUT_BUFFER,type PourState} from './input';
-import {replays,sampleScript,heartArtReplay} from './replays';
+import {replays,sampleScript,heartArtReplay,type FoamFinish} from './replays';
 import {clearanceMeters,solveJet,clamp,type JetState} from './jet';
 import {padSettings,padAim,wheelHeight,heldFlow,type PadAnchor} from './controls';
 import {InputRecorder,validRecording} from './recording';
@@ -41,9 +44,9 @@ ${musicControls}
 <section class="controls">
 <div class="dock-toolbar" aria-label="Pouring dock"><button id="dockAdjust" aria-expanded="false" aria-controls="pourControls"><span>Adjust</span><small id="dockValues">Flow · height</small></button><button id="dockCup" aria-expanded="false">Cup</button><button id="dockCorner" aria-expanded="false">Corner</button><button id="dockRadio" aria-expanded="false" aria-label="Open café radio">♫</button></div>
 <div class="milk"><span id="phase">POURING STUDIO</span><strong id="milk">100%</strong></div><progress id="budget" max="100" value="100"></progress>
-<div class="surface-tools"><label for="surfaceTool">Surface tool</label><select id="surfaceTool"><option value="pour">Milk pour</option><option value="pick">Foam pick · fine lines</option><option value="spoon">Foam spoon · soft swirls</option></select><button id="undoEtch" disabled>Undo stroke</button><small class="etch-caption">Drag on the coffee to pull foam · choose Milk pour to return</small></div>
+<div class="surface-tools"><label for="surfaceTool">Surface tool</label><select id="surfaceTool"><option value="pour">Milk pour</option><option value="pick">Foam pick · fine lines</option><option value="spoon">Foam spoon · soft swirls</option></select><button id="toolPrecision" type="button" aria-pressed="true" title="Fine detail: smaller contact, lighter pull, slower movement. Hold Shift for temporary precision.">Fine</button><button id="undoEtch" disabled>Undo stroke</button><small class="etch-caption">Fine gives smaller, gentler strokes · hold Shift for precision · touch tools sit above your finger</small></div>
 <details class="milk-recipes"><summary>Milk & pouring tips</summary><div><label>Milk texture<select id="milkTexture"><option value="prepared">My prepared milk</option>${Object.entries(milkRecipes).map(([id,r])=>`<option value="${id}">${r.label}</option>`).join('')}</select></label><p id="milkTip">${milkGuide}</p><small>Practice presets change your milk texture. Steam in Corner to prepare your own jug.</small></div></details>
-<div class="intentions" role="group" aria-label="Pour intention"><button id="drawIntent" aria-pressed="true">Draw</button><button id="finishIntent" aria-pressed="false">Finish</button><button id="showPour">Show a pour</button></div>
+<div class="intentions" role="group" aria-label="Pour intention"><button id="drawIntent" aria-pressed="true">Draw</button><button id="finishIntent" aria-pressed="false">Finish</button><select id="autoPourStyle" aria-label="Auto-pour pattern"><option value="Feather rosetta">Feather rosetta</option><option value="Classic rosetta">Classic rosetta</option><option value="Heart">Heart</option><option value="Cheeky rosetta">Cheeky rosetta</option></select><button id="showPour" title="Start a fresh cup and watch an automatic pour">Auto pour</button></div>
 <div id="pourControls"><div class="adjustments">
 <label><span id="deliveryLabel">Flow</span><input id="flow" aria-label="Flow" type="range" min="0.1" max="1" step="0.001" value="${defaultAdvanced.flow}"><output id="flowValue">${(defaultAdvanced.flow*12).toFixed(1)} ml/s</output></label>
 <label class="advancedControl">Height <input id="height" type="range" min="0" max="1" step="0.001" value="${defaultAdvanced.height}"><output id="heightValue">${(clearanceMeters(defaultAdvanced.height)*1000).toFixed(1)} mm</output></label>
@@ -86,7 +89,7 @@ let presets:Record<string,Preset>=structuredClone(defaults);
 try{const saved=JSON.parse(localStorage.getItem('little-latte-presets-v2')||'null');if(saved&&Object.keys(defaults).every(k=>validPreset(saved[k])))presets=saved;}catch{/* Optional storage. */}
 const view=createScene(el('stage')),fluid=new Fluid(),canvas=view.renderer.domElement;
 let cozy=new CozyView(!!view.renderer.getContext().getExtension('OES_texture_float_linear'));let cozyMode=true,intention:Intention=FRESH_CUP.intention,controlPhysical=intendedSettings(FRESH_CUP.intention,FRESH_CUP.delivery);
-let equipmentModel:EquipmentModel='adaptive-center-1';
+let equipmentModel:EquipmentModel='roomy-pour-3';
 let milkQuality=1,preparedMilkQuality=1;
 el<HTMLSelectElement>('milkTexture').onchange=e=>{const id=(e.target as HTMLSelectElement).value;milkQuality=milkRecipeQuality(id,preparedMilkQuality);el('milkTip').textContent=id==='prepared'?milkGuide:milkRecipes[id as MilkRecipe].tip;el('status').textContent=id==='prepared'?'Using your prepared milk.':'Milk practice preset ready · '+milkRecipes[id as MilkRecipe].label;};
 let controlResponse:ControlResponse='dry-ready-1';
@@ -113,27 +116,38 @@ function captureRecording(kind:'live'|'replay'){if(!cozyMode&&!experimental)retu
 let padAnchor:PadAnchor|null=null,shift=false;
 let steeringPoint:T.Vector2|null=null;
 let surfaceTool:'pour'|'pick'|'spoon'='pour',etchPointer:number|null=null,etchPoint:{x:number;y:number}|null=null;
+let etchRaw:{x:number;y:number}|null=null;
 let etchUndo:Float32Array|null=null;
+const toolPrecise=()=>el('toolPrecision').getAttribute('aria-pressed')==='true'||fine();
+let pendingFoamFinish:FoamFinish[]|undefined;
 const activeFilm=()=>cozyMode&&cozy.useFilm?cozy.film:experimental&&liquid?.useFilm?liquid.film:null;
-function endEtch(){if(etchPointer!==null&&canvas.hasPointerCapture(etchPointer))canvas.releasePointerCapture(etchPointer);etchPointer=null;etchPoint=null;view.setEtching(surfaceTool,null);}
+function endEtch(){if(etchPointer!==null&&canvas.hasPointerCapture(etchPointer))canvas.releasePointerCapture(etchPointer);etchPointer=null;etchPoint=null;etchRaw=null;view.setEtching(surfaceTool,null);}
 el<HTMLSelectElement>('surfaceTool').onchange=()=>{
  sealRecording();stop(true,'surface-tool');endEtch();surfaceTool=el<HTMLSelectElement>('surfaceTool').value as typeof surfaceTool;
  if(surfaceTool!=='pour'&&!activeFilm()){surfaceTool='pour';el<HTMLSelectElement>('surfaceTool').value='pour';el('status').textContent='Foam tools work with Full 3D and Free surface.';return;}
  if(surfaceTool==='pour'){etchUndo=null;el<HTMLButtonElement>('undoEtch').disabled=true;} document.querySelector('main')!.classList.toggle('etching',surfaceTool!=='pour');pour.setAttribute('aria-disabled',String(surfaceTool!=='pour'));
  el('status').textContent=surfaceTool==='pour'?'Ready to pour.':'Drag directly across the coffee to pull existing foam. No milk is added.';view.setEtching(surfaceTool,null);hint();
 };
+el('toolPrecision').onclick=()=>{const button=el('toolPrecision');button.setAttribute('aria-pressed',String(button.getAttribute('aria-pressed')!=='true'));};
 el('undoEtch').onclick=()=>{const film=activeFilm();if(film&&etchUndo){film.white.set(etchUndo);etchUndo=null;el<HTMLButtonElement>('undoEtch').disabled=true;el('status').textContent='Last foam stroke undone.';}};
+canvas.addEventListener('pointerdown',e=>{if(e.button!==0||paused||document.querySelector('main')!.classList.contains('world-open'))return;const kind=view.hitTableTool(e.clientX,e.clientY);if(!kind)return;e.preventDefault();e.stopImmediatePropagation();el<HTMLSelectElement>('surfaceTool').value=kind;el('surfaceTool').dispatchEvent(new Event('change'));},true);
 canvas.addEventListener('pointerdown',e=>{
  if(surfaceTool==='pour'||paused||e.button!==0||etchPointer!==null)return;
- e.stopImmediatePropagation();e.preventDefault();sealRecording();stop(true,'etch');
- const p=view.point(e.clientX,e.clientY),point={x:p.x*.5+.5,y:p.y*.5+.5};if(Math.hypot(point.x-.5,point.y-.5)>.47)return;
- etchUndo=activeFilm()!.white.slice();el<HTMLButtonElement>('undoEtch').disabled=false;etchPointer=e.pointerId;etchPoint=point;canvas.setPointerCapture(e.pointerId);view.setEtching(surfaceTool,p);
+ e.stopImmediatePropagation();e.preventDefault();sealRecording();stop(true,'etch');shift=e.shiftKey;
+ const p=view.point(e.clientX,e.clientY-(e.pointerType==='touch'?48:0)),point={x:p.x*.5+.5,y:p.y*.5+.5};if(Math.hypot(point.x-.5,point.y-.5)>.47)return;
+ etchUndo=activeFilm()!.white.slice();el<HTMLButtonElement>('undoEtch').disabled=false;etchPointer=e.pointerId;etchPoint=point;etchRaw=point;canvas.setPointerCapture(e.pointerId);view.setEtching(surfaceTool,p,toolPrecise()||e.shiftKey);
 },true);
 canvas.addEventListener('pointermove',e=>{
  if(surfaceTool==='pour'||paused)return;e.stopImmediatePropagation();
  const samples=e.getCoalescedEvents?.()||[];
- for(const sample of samples.length?samples:[e]){const p=view.point(sample.clientX,sample.clientY),next={x:p.x*.5+.5,y:p.y*.5+.5};view.setEtching(surfaceTool,Math.hypot(next.x-.5,next.y-.5)<.47?p:null);
-  if(etchPointer===e.pointerId&&etchPoint){activeFilm()?.etch(etchPoint,next,surfaceTool);etchPoint=next;}}
+ for(const sample of samples.length?samples:[e]){
+  const p=view.point(sample.clientX,sample.clientY-(e.pointerType==='touch'?48:0)),raw={x:p.x*.5+.5,y:p.y*.5+.5};
+  if(etchPointer===e.pointerId&&etchPoint&&etchRaw){
+   const precise=toolPrecise()||e.shiftKey,next=detailAim(etchPoint,etchRaw,raw,precise);
+   activeFilm()?.etch(etchPoint,next,surfaceTool,precise);etchPoint=next;etchRaw=raw;
+   view.setEtching(surfaceTool,new T.Vector2((next.x-.5)*2,(next.y-.5)*2),precise);
+  }else view.setEtching(surfaceTool,Math.hypot(raw.x-.5,raw.y-.5)<.47?p:null,toolPrecise()||e.shiftKey);
+ }
 },true);
 for(const event of ['pointerup','pointercancel','lostpointercapture'])canvas.addEventListener(event,e=>{if((e as PointerEvent).pointerId===etchPointer){e.stopImmediatePropagation();endEtch();}},true);
 const heldKeys=new Set<string>();
@@ -144,7 +158,7 @@ function packet(time:number,reason?:string){const event=timeline.push({...state,
 const unlimited=()=>el<HTMLInputElement>('unlimited').checked;
 function emit(time=performance.now()/1000){
  if(replayEnd){
-  replayEnd=0;state={...renderState,pouring:false};syncReplayControls(state);clock=performance.now()/1000-INPUT_BUFFER;timeline.reset(clock,state);
+  pendingFoamFinish=undefined;replayEnd=0;state={...renderState,pouring:false};syncReplayControls(state);clock=performance.now()/1000-INPUT_BUFFER;timeline.reset(clock,state);
   el('status').textContent='Replay stopped. Your controls are active.';
  }
  const was=state.pouring;
@@ -155,6 +169,7 @@ function emit(time=performance.now()/1000){
  packet(time);
 }
 function stop(dropHistory=false,reason='stop'){
+ pendingFoamFinish=undefined;
  if(replayEnd){state={...renderState,pouring:false};syncReplayControls(state);}
  if(dropHistory&&replayEnd){pendingCapture=null;replayCapture=null;el('status').textContent='Replay interrupted. Play it again to compare.';}
  mousePour=held=false;
@@ -222,12 +237,12 @@ function fresh(){
 el<HTMLSelectElement>('mode').onchange=()=>{
  stop(true);const requested=el<HTMLSelectElement>('mode').value==='volume';
  cozyMode=el<HTMLSelectElement>('mode').value==='cozy';
- try{if(requested&&!liquid)liquid=new Liquid3D(view.renderer);experimental=requested;el('compatibility').textContent=requested?'Recommended · full liquid depth and latte-art surface':'Legacy · original fixed surface for comparison';}
+ try{if(requested&&!liquid)liquid=new Liquid3D(view.renderer);experimental=requested;if(requested&&liquid)liquid.movingEnabled=new URLSearchParams(location.search).get('liquid')!=='rigid';el('compatibility').textContent=requested?'Recommended · full liquid depth and latte-art surface':'Legacy · original fixed surface for comparison';}
  catch(error){experimental=false;cozyMode=true;el<HTMLSelectElement>('mode').value='cozy';el<HTMLSelectElement>('mode').options[2].disabled=true;el('compatibility').textContent=`3D unavailable on this device (${String(error)}). Using free surface art.`;}
  if(cozyMode&&!requested)el('compatibility').textContent='Compatibility option · moving surface with the same latte-art layer';
  el('bulkPanel').hidden=!experimental||!el<HTMLInputElement>('developer').checked;preset.disabled=experimental||cozyMode;el('tuning').hidden=experimental||cozyMode;document.querySelector('#clearance small')!.textContent=experimental||cozyMode?'Current liquid surface':'Prepared canvas';fresh();
 };
-function startDrawing(){el<HTMLSelectElement>('surfaceTool').value='pour';el('surfaceTool').dispatchEvent(new Event('change'));sealRecording();equipmentModel='adaptive-center-1';controlResponse='dry-ready-1';el<HTMLInputElement>('rimAccess').checked=FRESH_CUP.rimAccess;el<HTMLInputElement>('stopAtRim').checked=FRESH_CUP.stopAtRim;cozy.stopAtRim=FRESH_CUP.stopAtRim;if(cozyMode||experimental){range.value=String(cozyControls()?FRESH_CUP.delivery:intendedSettings(FRESH_CUP.intention,FRESH_CUP.delivery).flow);state={...initialState(),x:FRESH_CUP.x,y:FRESH_CUP.y,delivery:FRESH_CUP.delivery};chooseIntention(FRESH_CUP.intention);}fresh();}
+function startDrawing(){el<HTMLSelectElement>('surfaceTool').value='pour';el('surfaceTool').dispatchEvent(new Event('change'));sealRecording();equipmentModel='roomy-pour-3';controlResponse='dry-ready-1';el<HTMLInputElement>('rimAccess').checked=FRESH_CUP.rimAccess;el<HTMLInputElement>('stopAtRim').checked=FRESH_CUP.stopAtRim;cozy.stopAtRim=FRESH_CUP.stopAtRim;if(cozyMode||experimental){range.value=String(cozyControls()?FRESH_CUP.delivery:intendedSettings(FRESH_CUP.intention,FRESH_CUP.delivery).flow);state={...initialState(),x:FRESH_CUP.x,y:FRESH_CUP.y,delivery:FRESH_CUP.delivery};chooseIntention(FRESH_CUP.intention);}fresh();}
 el('reset').onclick=()=>{fresh();closeDocks();};
 el('refill').onclick=()=>{sealRecording();stop(true,'refill');ledger.refill();view.refillAnimation();el('status').textContent='Fresh milk is steaming in your counter jug…';};
 el('nextCup').onclick=()=>{sealRecording();stop(true,'next-cup');if(!view.keepCup()){el('status').textContent='Six cups on the counter. Clear finished cups in Corner to make room.';return;}const milk=ledger.remaining;fresh();ledger.remaining=milk;el('status').textContent='Your finished cup stays on the counter. This cup is ready; your milk supply carries over.';};
@@ -242,16 +257,16 @@ el<HTMLInputElement>('import').onchange=async e=>{try{const file=(e.target as HT
 el<HTMLInputElement>('left').onchange=e=>el('app').classList.toggle('left',(e.target as HTMLInputElement).checked);
 el<HTMLSelectElement>('quality').onchange=e=>view.quality(Number((e.target as HTMLSelectElement).value));
 el('runReplay').onclick=()=>{
- startDrawing();const name=el<HTMLSelectElement>('replay').value,replay=sampleScript(name==='Heart'&&(cozyMode||experimental)?heartArtReplay:replays[name]);const start=clock;
- for(const event of replay.events)timeline.push({...event,bearing:0,time:event.time+start,received:(event.received??event.time)+start});replayEnd=start+replay.duration+INPUT_BUFFER;replayClockEnd=start+replay.duration;
+ startDrawing();const name=el<HTMLSelectElement>('replay').value,replay=sampleScript(name==='Heart'&&(cozyMode||experimental)?heartArtReplay:replays[name]);const start=clock;pendingFoamFinish=replay.finishingStrokes;
+ for(const event of replay.events)timeline.push({...event,bearing:event.bearing??0,time:event.time+start,received:(event.received??event.time)+start});replayEnd=start+replay.duration+INPUT_BUFFER;replayClockEnd=start+replay.duration;
  el('status').textContent=`Replaying ${el<HTMLSelectElement>('replay').value.toLowerCase()} · position / flow / height actions`;
- (document.querySelector('details') as HTMLDetailsElement).open=false;
+ (document.querySelector('main>details') as HTMLDetailsElement).open=false;
 };
-el('showPour').onclick=()=>{el<HTMLSelectElement>('replay').value='Heart';el('runReplay').click();el('status').textContent='Watch the pool grow two lobes, then lift and cut forward into a point. Fresh cup starts your turn.';};
+el('showPour').onclick=()=>{if(replayEnd){stop(true,'auto-stop');el('status').textContent='Auto pour stopped. Your cup is ready to continue.';return;}el<HTMLSelectElement>('replay').value=el<HTMLSelectElement>('autoPourStyle').value;el('runReplay').click();el('status').textContent='Fresh cup · watch the pour, or touch the coffee to take over.';};
 el('runLiquidDemo').onclick=()=>{
  fresh();const name=el<HTMLSelectElement>('liquidDemo').value,replay=sampleScript(liquidDemonstrations[name]),start=clock;
  for(const event of replay.events)timeline.push({...event,time:event.time+start,received:(event.received??event.time)+start});replayEnd=start+replay.duration+INPUT_BUFFER;replayClockEnd=start+replay.duration;
- el('status').textContent=`Response: ${name}. These are input packets, not a finished pattern.`;(document.querySelector('details') as HTMLDetailsElement).open=false;
+ el('status').textContent=`Response: ${name}. These are input packets, not a finished pattern.`;(document.querySelector('main>details') as HTMLDetailsElement).open=false;
 };
 el('exportLiquidMetrics').onclick=()=>exportJSON({date:'2026-10-07',mode:cozyMode?String(cozy.inspect().mode):experimental?String(liquid!.metrics().mode):'existing-surface',metrics:model()?.inspect()??fluid.metrics(),frameMs:frameSamples,cpuSubmitMs:cpuSamples,gpuSimulationMs:gpuSamples,renderSubmitMs:renderSamples,renderGpuMs:view.renderGpuTimings(),readback:lastInspection,device:navigator.userAgent},'latte-liquid-measurements.json');
 function exportJSON(data:unknown,name:string){const url=URL.createObjectURL(new Blob([JSON.stringify(data,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
@@ -267,7 +282,7 @@ el('playRecording').onclick=()=>{
  cozy.surfaceYield=recording.environment?.solver!=='hydrostatic-two-layer-1';
  cozy.useFilm=recording.environment?.solver?.startsWith('hydrostatic-film-')??false;cozy.film.response=recording.environment?.solver==='hydrostatic-film-3'?'legacy':recording.environment?.solver==='hydrostatic-film-5'?'taper':'local';
  cozy.stopAtRim=recording.environment?.stopAtRim??false;
- if(experimental&&liquid){liquid.useFilm=recording.environment?.solver?.startsWith('gpu-volume-film-')??false;liquid.film.response=recording.environment?.solver==='gpu-volume-film-1'?'legacy':recording.environment?.solver==='gpu-volume-film-3'?'taper':'local';}
+ if(experimental&&liquid){liquid.useFilm=recording.environment?.solver?.startsWith('gpu-volume-film-')??false;liquid.movingEnabled=recording.environment?.solver==='gpu-volume-film-4';liquid.film.response=recording.environment?.solver==='gpu-volume-film-1'?'legacy':['gpu-volume-film-3','gpu-volume-film-4'].includes(recording.environment?.solver??'')?'taper':'local';}
  el<HTMLInputElement>('rimAccess').checked=recording.environment?.rimAccess!==false;
  equipmentModel=recording.environment?.equipmentModel??'rim-binary-1';
  controlResponse=recording.environment?.controlResponse??'smooth-1';milkQuality=recording.environment?.milkQuality??1;
@@ -277,7 +292,7 @@ el('playRecording').onclick=()=>{
  replayClockEnd=pendingCapture.time;
  playbackSkips=recording.skips.map(skip=>({from:skip.from+start,to:skip.to+start}));
  for(const event of recording.events)timeline.push({...event,time:event.time+start,received:event.received!+start});replayEnd=start+recording.duration+INPUT_BUFFER;
- el('status').textContent='Playing your recorded input';(document.querySelector('details') as HTMLDetailsElement).open=false;
+ el('status').textContent='Playing your recorded input';(document.querySelector('main>details') as HTMLDetailsElement).open=false;
 };
 el('exportRecording').onclick=()=>{if(recorder.active)endRecording();if(recorder.recording){el<HTMLTextAreaElement>('recordingJSON').value=JSON.stringify(recorder.recording,null,2);el('recordingCopy').hidden=false;exportJSON(recorder.recording,'latte-recording.json');el('status').textContent='Recording exported. JSON is also available to copy.';}else el('status').textContent='Record a pour first.';};
 el('exportComparison').onclick=()=>{const comparison={recording:recorder.recording,live:liveCapture,replay:replayCapture,frameMs:frameSamples,cpuTickMs:cpuSamples,renderSubmitMs:renderSamples,renderGpuMs:view.renderGpuTimings(),device:navigator.userAgent};el<HTMLTextAreaElement>('comparisonJSON').value=JSON.stringify(comparison);el('comparisonCopy').hidden=false;exportJSON(comparison,'latte-recording-comparison.json');};
@@ -286,11 +301,12 @@ let audio:AudioContext|undefined,gain:GainNode|undefined;
 el<HTMLInputElement>('sound').onchange=async e=>{if((e.target as HTMLInputElement).checked){try{if(!audio){audio=new AudioContext();const buffer=audio.createBuffer(1,audio.sampleRate*2,audio.sampleRate);const samples=buffer.getChannelData(0);for(let i=0;i<samples.length;i++)samples[i]=Math.random()*2-1;const source=audio.createBufferSource();source.buffer=buffer;source.loop=true;const filter=audio.createBiquadFilter();filter.type='lowpass';filter.frequency.value=750;gain=audio.createGain();gain.gain.value=0;source.connect(filter).connect(gain).connect(audio.destination);source.start();}await audio.resume();}catch{el('status').textContent='Pour sound unavailable.';}}else if(gain)gain.gain.value=0;};
 let lastFieldUpload=0;let last=performance.now()/1000,frames=0,report=last,simMs=0,uploadMs=0,renderMs=0,dropped=0,renderState={...state};
 function frame(ms:number){
- cozy.film.milkQuality=milkQuality;if(liquid)liquid.film.milkQuality=milkQuality;view.coffeeMaterial.uniforms.milkQuality.value=milkQuality;
+ cozy.film.milkQuality=milkQuality;if(liquid){liquid.film.milkQuality=milkQuality;liquid.deterministicSampling=recorder.active||!!pendingCapture||!!replayEnd;}view.coffeeMaterial.uniforms.milkQuality.value=milkQuality;
  const now=ms/1000;const elapsed=now-last;last=now;
  if(document.hidden){requestAnimationFrame(frame);return;}
- // A long stall discards pending wet history, preventing delayed emission.
- if(elapsed>.15&&!studio?.active){dropped++;stop(true,'stall');}
+ // Live input drops stale wet history. Authored playback keeps its timeline
+ // across shader warm-up / slow frames; the eight-step frame budget bounds catch-up.
+ if(elapsed>.15&&!studio?.active){dropped++;if(!replayEnd&&etchPointer===null)stop(true,'stall');}
  if(!paused&&!finished&&!replayEnd&&heldKeys.size)changeFlow(heldFlow((heldKeys.has('KeyD')?1:0)-(heldKeys.has('KeyA')?1:0),elapsed,fine()));
  const begin=performance.now();
  if(!paused){let steps=0;while(clock+1/60<=now-INPUT_BUFFER&&steps++<8){
@@ -317,14 +333,15 @@ function frame(ms:number){
  }
  }else {recorder.skip(clock,now-INPUT_BUFFER);clock=now-INPUT_BUFFER;}
  simMs+=performance.now()-begin;
- if(replayEnd&&clock>=replayClockEnd-1e-8){state={...renderState,pouring:false};syncReplayControls(state);replayEnd=0;stop();el('status').textContent='Replay settled. Try the same gestures with your controls.';}
+ if(replayEnd&&clock>=replayClockEnd-1e-8){const film=activeFilm();if(film&&pendingFoamFinish){etchUndo=film.white.slice();el<HTMLButtonElement>('undoEtch').disabled=false;for(const stroke of pendingFoamFinish)for(let pass=0;pass<(stroke.passes??1);pass++)for(let i=1;i<stroke.points.length;i++)film.etch(stroke.points[i-1],stroke.points[i],stroke.tool);}state={...renderState,pouring:false};syncReplayControls(state);replayEnd=0;stop();el('status').textContent='Replay settled. Try the same gestures with your controls.';}
  if(finished&&now>=settleUntil)el('status').textContent='A cup made by you. Start fresh whenever you like.';
   const visual=renderState,pouring=currentJet.emitting&&!paused&&!finished;
  if(replayEnd&&visual.intention){intention=visual.intention;for(const key of ['draw','finish'])el(key+'Intent').setAttribute('aria-pressed',String(intention===key));}
  if(replayEnd)syncReplayControls(visual);
+ const autoButton=el('showPour'),autoLabel=replayEnd?'Stop pour':'Auto pour';if(autoButton.textContent!==autoLabel)autoButton.textContent=autoLabel;autoButton.setAttribute('aria-pressed',String(!!replayEnd));autoButton.title=replayEnd?'Stop the automatic pour and keep this cup':'Start a fresh cup and watch an automatic pour';
  if(gain&&audio)gain.gain.setTargetAtTime(pouring&&el<HTMLInputElement>('sound').checked?visual.flow*.06:0,audio.currentTime,.03);
  const field=el<HTMLSelectElement>('field').value,uploadStart=performance.now();if(!paused||ms-lastFieldUpload>200){lastFieldUpload=ms;if(cozyMode)cozy.sync(field);else if(experimental)liquid!.sync(field);else fluid.sync(field,presets[preset.value].opacity);}view.coffeeMaterial.uniforms.field.value=cozyMode?cozy.fieldTexture:experimental?liquid!.texture:fluid.texture;view.coffeeMaterial.uniforms.debug.value=field==='velocity'?1:0;uploadMs+=performance.now()-uploadStart;
- view.setFreeSurface(cozyMode?cozy:undefined);
+ view.setFreeSurface(cozyMode?cozy:experimental&&liquid?.movingEnabled?liquid:undefined);
  view.coffeeMaterial.uniforms.surfacePurity.value=cozyMode&&cozy.useFilm||experimental&&liquid!.useFilm?1:0;
  view.setLiquidLevel(cozyMode?cozy.surfaceM:experimental?liquid!.cup.surfaceM:0,cozyMode||experimental);
  view.setSpill(cozyMode?cozy.rimSpillMl+cozy.missMl:0,cozy.lastSpill);
@@ -344,7 +361,7 @@ function frame(ms:number){
  frames++;if(now-report>1){
    if(experimental&&el<HTMLInputElement>('developer').checked){lastInspection=liquid!.inspect(el<HTMLCanvasElement>('bulkSlice'));el('bulkCaption').textContent=`${liquid!.cup.fillMl.toFixed(1)} / 120.6 ml · ${(liquid!.cup.depthM*1000).toFixed(1)} mm depth · arrows: velocity`;}
   el('performance').textContent=`${Math.round(frames/(now-report))} fps · ${cozyMode?cozy.size+'² bulk'+(cozy.useFilm?' + '+cozy.film.size+'² surface':' two layers'):experimental?'32×32×20 + '+(liquid!.useFilm?'160² art':'256² foam'):fluid.size+'²'} · 60 Hz · ${(simMs/frames).toFixed(1)} ms ${experimental?'CPU submission':'simulation'} · ${(uploadMs/frames).toFixed(1)} ms display · ${(renderMs/frames).toFixed(1)} ms render${experimental?` · GPU ${liquid!.gpuMs?.toFixed(1)??'timer unavailable'} ms/tick`:''}`;
-  el('diagnostics').textContent=JSON.stringify({...cozyMode?cozy.inspect():experimental?liquid!.metrics():fluid.metrics(),remaining:ledger.remaining,active:pouring,stroke:visual.stroke,requestedClearanceMm:clearanceMeters(controlPhysical.height)*1000,actualClearanceMm:currentJet.clearanceM*1000,actualFlowMlS:currentJet.actualFlowMlS,fillMl:cozyMode?cozy.fillMl:experimental?liquid!.cup.fillMl:undefined,rimAssistance:el<HTMLInputElement>('rimAccess').checked,equipmentModel,controlResponse,bufferMs:INPUT_BUFFER*1000,latePackets:timeline.latePackets,droppedStalls:dropped},null,2);frames=0;simMs=uploadMs=renderMs=0;report=now;
+  el('diagnostics').textContent=JSON.stringify({...cozyMode?cozy.inspect():experimental?liquid!.metrics():fluid.metrics(),remaining:ledger.remaining,active:pouring,aimX:visual.x,aimY:visual.y,stroke:visual.stroke,requestedClearanceMm:clearanceMeters(controlPhysical.height)*1000,actualClearanceMm:currentJet.clearanceM*1000,actualFlowMlS:currentJet.actualFlowMlS,pitcherYaw:currentJet.pitcherYaw,fillMl:cozyMode?cozy.fillMl:experimental?liquid!.cup.fillMl:undefined,rimAssistance:el<HTMLInputElement>('rimAccess').checked,equipmentModel,controlResponse,toolPoint:etchPoint,toolPrecision:surfaceTool!=='pour'&&toolPrecise(),bufferMs:INPUT_BUFFER*1000,latePackets:timeline.latePackets,droppedStalls:dropped},null,2);frames=0;simMs=uploadMs=renderMs=0;report=now;
  }requestAnimationFrame(frame);
 }
 function closeDocks(){for(const [id,name] of [['dockAdjust','dock-adjusting'],['dockCup','dock-cup'],['dockCorner','corner-open'],['dockRadio','radio-open']]){document.querySelector('main')!.classList.remove(name);el(id).setAttribute('aria-expanded','false');}}
@@ -365,7 +382,7 @@ const studio=mountCornerStudio(view,()=>{
  // Synchronize display fields at this completed simulation boundary before copying.
  if(cozyMode)cozy.sync();else if(experimental)liquid!.sync();else fluid.sync('milk',presets[preset.value].opacity);
  view.coffeeMaterial.uniforms.field.value=cozyMode?cozy.fieldTexture:experimental?liquid!.texture:fluid.texture;
- view.setFreeSurface(cozyMode?cozy:undefined);view.setLiquidLevel(cozyMode?cozy.surfaceM:experimental?liquid!.cup.surfaceM:0,cozyMode||experimental);
+ view.setFreeSurface(cozyMode?cozy:experimental&&liquid?.movingEnabled?liquid:undefined);view.setLiquidLevel(cozyMode?cozy.surfaceM:experimental?liquid!.cup.surfaceM:0,cozyMode||experimental);
  view.setEnjoy(true);
  return {sourceModel:cozyMode?String(cozy.inspect().mode):experimental?String(liquid!.metrics().mode):'existing-surface',tick:clock,fillMl:cozyMode?cozy.fillMl:experimental?liquid!.cup.fillMl:55};
 },()=>{paused=document.hidden;stop(true,'studio-close');view.setEnjoy(finished);});
@@ -383,6 +400,7 @@ el('dockCup').textContent='Cup actions';
 el('dockRadio').textContent='Café radio';
 document.querySelector('.actions')!.append(el('dockRadio'));
 const cornerPhoto=document.createElement('button');cornerPhoto.textContent='Take photo';cornerPhoto.onclick=()=>el('worldCapture').click();document.querySelector('.corner-more-menu')!.prepend(cornerPhoto);
+mountSceneFirstUI(()=>stop(true,'menu'));
 installRecipeButtons();
 if(new URLSearchParams(location.search).has('verify'))import('./control-check');
 if(new URLSearchParams(location.search).has('verify'))import('./liquid-check').then(({mountLiquidChecks})=>mountLiquidChecks({get:()=>experimental?liquid:undefined,recording:()=>recorder.recording,begin:()=>{fresh();paused=true;},end:()=>{paused=document.hidden;stop(true);},picture:(jet)=>{liquid!.sync();view.coffeeMaterial.uniforms.field.value=liquid!.texture;view.setLiquidLevel(liquid!.cup.surfaceM,true);view.render(jet,false,true);return canvas.toDataURL('image/jpeg',.85);}}));

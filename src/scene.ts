@@ -1,6 +1,7 @@
 import * as T from 'three';
+import {foamToolSettings} from './tool-controls';
 import {jetPoint,WORLD_PER_METER,GRAVITY,type JetState} from './jet';
-import type {CozyView} from './cozy-view';
+type SurfaceView={heightTexture:T.Texture;useFilm:boolean;depthAt:(x:number,y:number)=>number};
 import {PITCHER} from './vessel';
 import {createPitcher} from './pitcher-mesh';
 import {addNookPlants} from './nook-plants';
@@ -77,12 +78,12 @@ export function createScene(host: HTMLElement) {
  const interior=mesh(new T.LatheGeometry([new T.Vector2(0,-.66),new T.Vector2(.78,-.66),new T.Vector2(.91,-.62),new T.Vector2(1.02,-.24),new T.Vector2(1.04,-.05),new T.Vector2(1.035,0),new T.Vector2(.97,0),new T.Vector2(.97,-.024*WORLD_PER_METER),new T.Vector2(0,-.024*WORLD_PER_METER)],96),cupGlaze,0,0,0);interior.rotation.x=Math.PI/2;interior.visible=false;
  const coffeeMaterial=createLiquidMaterial();const coffee=mesh(new T.CircleGeometry(1,96),coffeeMaterial,0,0,.005);coffee.castShadow=false;coffee.name='latte-liquid';
  for(const part of [...scene.children])if(!cupStart.has(part))mug.attach(part);
- const circleGeometry=coffee.geometry,freeGeometry=new T.PlaneGeometry(2,2,64,64);let freeLiquid:CozyView|undefined;
+ const circleGeometry=coffee.geometry,freeGeometry=new T.PlaneGeometry(2,2,64,64);let freeLiquid:SurfaceView|undefined;
  const puddle=mesh(new T.CircleGeometry(.3,40),new T.MeshBasicMaterial({color:'#aa8964',transparent:true,opacity:.65,depthWrite:false}),0,-1.4,-.775);puddle.visible=false;puddle.castShadow=false;
  const marker=mesh(new T.RingGeometry(.025,.036,32),new T.MeshBasicMaterial({color:'#ffe0a2',transparent:true,opacity:.7}),0,0,.025);marker.castShadow=false;
  let pitcher=createPitcher(jugMetal);scene.add(pitcher);
- const streamGeometry=new T.BufferGeometry(),streamPositions=new Float32Array(13*9*3),streamIndices:number[]=[];
- for(let ring=0;ring<12;ring++)for(let side=0;side<8;side++){const k=ring*9+side;streamIndices.push(k,k+9,k+1,k+1,k+9,k+10);}
+ const streamGeometry=new T.BufferGeometry(),streamPositions=new Float32Array(13*25*3),streamIndices:number[]=[];
+ for(let ring=0;ring<12;ring++)for(let side=0;side<24;side++){const k=ring*25+side;streamIndices.push(k,k+25,k+1,k+1,k+25,k+26);}
  streamGeometry.setAttribute('position',new T.BufferAttribute(streamPositions,3));streamGeometry.setIndex(streamIndices);
  const stream=mesh(streamGeometry,new T.MeshPhysicalMaterial({color:'#f8edda',roughness:.32,clearcoat:.15}),0,0,0);stream.castShadow=false;stream.visible=false;stream.frustumCulled=false;
  const steam=Array.from({length:9},()=>{const p=mesh(new T.SphereGeometry(.08,12,8),new T.MeshBasicMaterial({color:'#fff1dc',transparent:true,opacity:.03,depthWrite:false}),0,0,0);p.castShadow=false;return p;});
@@ -94,8 +95,26 @@ export function createScene(host: HTMLElement) {
  for(const part of [mug,pitcher,puddle,marker,stream,contact,...steam])work.add(part);
  const etchTools={pick:createFoamTool('pick',steel,wood),spoon:createFoamTool('spoon',steel,wood)};
  for(const tool of Object.values(etchTools)){tool.visible=false;tool.userData.photoHidden=true;work.add(tool);}
+ const toolRing=mesh(new T.RingGeometry(.94,1,48),new T.MeshBasicMaterial({color:'#ffe8ae',transparent:true,opacity:.8,depthWrite:false}),0,0,0);toolRing.visible=false;toolRing.userData.photoHidden=true;toolRing.castShadow=false;work.add(toolRing);
  let etching=false;
  const workshop=createWorkshop(scene),equipment=createBrewEquipment(scene,jugMetal);
+ const toolTray=new T.Group();toolTray.name='physical-foam-tool-tray';scene.add(toolTray);
+ let selectedTableTool:'pour'|'pick'|'spoon'='pour';
+ const restingPitcher=createPitcher(jugMetal);restingPitcher.userData.photoHidden=false;toolTray.add(restingPitcher);
+ const restingMilk=new T.Mesh(new T.CircleGeometry(.16,40),new T.MeshStandardMaterial({color:'#f2e6cd',roughness:.38}));restingMilk.position.z=.16;restingPitcher.add(restingMilk);
+ const toolProxies={} as Record<'pour'|'pick'|'spoon',T.Mesh>;
+ for(const kind of ['pour','pick','spoon'] as const){const proxy=new T.Mesh(new T.BoxGeometry(kind==='pour'?.55:.3,kind==='pour'?.65:.85,kind==='pour'?.6:.12),new T.MeshBasicMaterial());proxy.visible=false;proxy.name='table-'+kind;toolTray.add(proxy);toolProxies[kind]=proxy;}
+ function layoutTableTools(){
+  const {width,height}=host.getBoundingClientRect(),phone=width<650;
+  toolTray.visible=!exploreView&&!decorateView&&!enjoyView;equipment.setPourView(toolTray.visible);
+  if(!toolTray.visible){for(const [i,kind] of (['pick','spoon'] as const).entries()){const tool=equipment.foamTools[kind];equipment.root.add(tool);tool.visible=true;tool.position.set(-.85-i*.24,-.45,.05);tool.rotation.set(0,0,-.15);}return;}
+  const cupScreen=coffee.getWorldPosition(new T.Vector3()).project(camera),radius=width/(camera.right-camera.left),above=(1-cupScreen.y)*height/2-radius*1.4-24;
+  ray.setFromCamera(new T.Vector2(cupScreen.x,1-Math.max(phone?130:120,above)/height*2),camera);
+  const p=new T.Vector3();ray.ray.intersectPlane(new T.Plane(new T.Vector3(0,0,1),.765),p);toolTray.position.copy(p);
+  restingPitcher.position.set(-.65,0,.25);restingPitcher.rotation.z=.2;restingPitcher.visible=selectedTableTool!=='pour';toolProxies.pour.position.set(-.65,0,.25);
+  for(const [i,kind] of (['pick','spoon'] as const).entries()){const tool=equipment.foamTools[kind];toolTray.add(tool);tool.visible=selectedTableTool!==kind;tool.position.set(-.08+i*.52,-.28,.015);tool.rotation.set(0,0,0);toolProxies[kind].position.set(tool.position.x,.07,.03);}
+ }
+
  const brewing=createBrewingProps(scene);
  let fancyMachine:T.Group|undefined,machineLoading=false,selectedMachine:RoomConfig['machine']='classic';
  function upgradeMachine(choice:RoomConfig['machine']){
@@ -138,7 +157,8 @@ export function createScene(host: HTMLElement) {
    camera.position.set(0,-3.1,9);camera.lookAt(0,-1.1,0);
    const controlHeight=document.querySelector('.controls')?.getBoundingClientRect().height||240;
    document.documentElement.style.setProperty('--controlHeight',`${controlHeight}px`);
-   const side=width>=650&&height<=650,top=width<650?60:height<=650?55:85,bottom=side?50:controlHeight+30,available=Math.max(100,height-top-bottom);
+   const compactLayout=document.querySelector('main')!.classList.contains('scene-first');
+   const side=width>=650&&(compactLayout||height<=650),top=width<650?145:height<=650?55:85,bottom=side?50:(compactLayout?Math.min(controlHeight,230):controlHeight)+30,available=Math.max(100,height-top-bottom);
    const dockWidth=document.querySelector('.controls')?.getBoundingClientRect().width||304;
    const usableWidth=side?width-dockWidth-28:width,diameter=Math.min(usableWidth*.65,available*.80,400),scale=diameter/2;
    const center=top+available*.52,offset=(center-height/2)/scale,offsetX=(side?(width/2-usableWidth/2)/scale:0)+.07;
@@ -154,7 +174,7 @@ export function createScene(host: HTMLElement) {
  },
  stationOperation(kind:'off'|'grind'|'espresso'|'pour-over'|'steam'|'purge',progress=0){brewing.set(kind,progress);equipment.steam(kind==='steam');},
  hitStation(x:number,y:number){const rect=renderer.domElement.getBoundingClientRect();ray.setFromCamera(new T.Vector2((x-rect.left)/rect.width*2-1,1-(y-rect.top)/rect.height*2),worldCamera);brewing.root.updateMatrixWorld(true);return ray.intersectObjects(brewing.proxies)[0]?.object.userData.station as 'espresso'|'pour-over'|'milk'|'purge'|undefined;},
- setEtching(kind:'pour'|'pick'|'spoon',point:T.Vector2|null){etching=kind!=='pour';for(const [key,tool] of Object.entries(etchTools)){tool.visible=key===kind&&!!point;if(point){tool.position.set(point.x,point.y,surfaceZ+.025);tool.rotation.set(.35,0,-.65);}}},
+ setEtching(kind:'pour'|'pick'|'spoon',point:T.Vector2|null,precise=false){selectedTableTool=kind;etching=kind!=='pour';toolRing.visible=etching&&!!point;if(point&&kind!=='pour'){toolRing.position.set(point.x,point.y,surfaceZ+.023);toolRing.scale.setScalar(foamToolSettings(kind,precise).radius*4);}for(const [key,tool] of Object.entries(etchTools)){tool.visible=key===kind&&!!point;if(point){tool.position.set(point.x,point.y,surfaceZ+.025);tool.rotation.set(.35,0,-.65);}}},
  mugPose(){return {size:mugSize,turn:mugTurn};},
  worldPieceScreen(kind:string,id?:string){const object=kind==='cup'?mug:kind==='milk'?equipment.root.getObjectByName('counter-milk-jug'):kind==='tools'?equipment.root:kind==='light'?scene.getObjectByName('task-fixture'):workshop.root.children.find(o=>o.userData.placementId===id);if(!object)return null;object.updateWorldMatrix(true,false);const p=object.getWorldPosition(new T.Vector3());if(kind==='tools'){p.x+=1;p.y-=.65;p.z-=.05;}else p.z+=kind==='cup'?.65:kind==='light'?1.1:.5;p.project(worldCamera);if(p.z<-1||p.z>1||Math.abs(p.x)>.92||Math.abs(p.y)>.85)return null;return {x:(p.x+1)*host.clientWidth/2,y:(1-p.y)*host.clientHeight/2};},
  hitWorldPiece(x:number,y:number){const rect=renderer.domElement.getBoundingClientRect();ray.setFromCamera(new T.Vector2((x-rect.left)/rect.width*2-1,1-(y-rect.top)/rect.height*2),worldCamera);equipment.root.updateMatrixWorld(true);const fixtures=scene.getObjectByName('installed-lights');fixtures?.updateMatrixWorld(true);const hit=ray.intersectObjects([equipment.root,...(fixtures?.children.filter(o=>o.visible)||[])],true)[0];if(!hit)return null;let node:T.Object3D|null=hit.object;while(node){if(node.name==='counter-milk-jug')return 'milk';if(node.name==='task-fixture'||node.name==='pendant-fixture')return 'light';node=node.parent;}return 'tools';},
@@ -174,11 +194,15 @@ export function createScene(host: HTMLElement) {
  resetWorld,
  worldCamera(){orbit.update();return worldCamera.clone();},
  worldStep(dx:number,dy:number,dz:number){const forward=orbit.target.clone().sub(worldCamera.position);forward.z=0;forward.normalize();const right=new T.Vector3().crossVectors(forward,new T.Vector3(0,0,1));const delta=right.multiplyScalar(dx).addScaledVector(forward,dy);delta.z=dz;const target=orbit.target.clone().add(delta);target.x=T.MathUtils.clamp(target.x,-8,8);target.y=T.MathUtils.clamp(target.y,-3,1.3);target.z=T.MathUtils.clamp(target.z,-.5,4);delta.copy(target).sub(orbit.target);worldCamera.position.add(delta);orbit.target.copy(target);orbit.update();},
+ tableToolPositions(){toolTray.updateMatrixWorld(true);const rect=renderer.domElement.getBoundingClientRect();return (['pour','pick','spoon'] as const).map(kind=>{const p=toolProxies[kind].getWorldPosition(new T.Vector3()).project(camera);return {kind,x:(p.x+1)*rect.width/2,y:(1-p.y)*rect.height/2,visible:toolTray.visible&&selectedTableTool!==kind};});},
+ hitTableTool(x:number,y:number){if(!toolTray.visible||exploreView||decorateView||enjoyView)return null;const rect=renderer.domElement.getBoundingClientRect();ray.setFromCamera(new T.Vector2((x-rect.left)/rect.width*2-1,1-(y-rect.top)/rect.height*2),camera);toolTray.updateMatrixWorld(true);const hit=ray.intersectObjects((['pour','pick','spoon'] as const).filter(kind=>kind!==selectedTableTool).map(kind=>toolProxies[kind]))[0];if(!hit)return null;const cupHit=ray.intersectObject(mug,true)[0];if(cupHit&&cupHit.distance<hit.distance)return null;return hit.object.name.slice(6) as 'pour'|'pick'|'spoon';},
+
  hitMug(x:number,y:number){const rect=renderer.domElement.getBoundingClientRect();ray.setFromCamera(new T.Vector2((x-rect.left)/rect.width*2-1,1-(y-rect.top)/rect.height*2),worldCamera);mug.updateMatrixWorld(true);return ray.intersectObject(mug,true).length>0;},
- setDecorate(value:boolean){decorateView=value;resize();},applyRoom(value:RoomConfig){applySettings(value);},snapshot(){return createPhotoSnapshot(renderer,scene,room);},get renderGpuMs(){return renderGpuMs;},renderGpuTimings(){return renderGpuTimings.slice();},clearTimings(){renderGpuTimings.length=0;},setEnjoy(value:boolean){enjoyView=value;resize();},setFreeSurface(liquid:CozyView|undefined){freeLiquid=liquid;coffee.geometry=liquid?freeGeometry:circleGeometry;coffeeMaterial.uniforms.freeSurface.value=liquid?1:0;coffeeMaterial.uniforms.surfacePurity.value=liquid?.useFilm?1:0;coffeeMaterial.uniforms.heightField.value=liquid?.heightTexture??null;},setSpill(ml:number,point:{x:number;y:number}){puddle.visible=ml>.02;const angle=Math.atan2(point.y-.5,point.x-.5);puddle.position.x=Math.cos(angle)*1.42;puddle.position.y=Math.sin(angle)*1.42;puddle.scale.set(Math.min(2.5,.35+Math.sqrt(ml)*.18),Math.min(1.6,.3+Math.sqrt(ml)*.1),1);},setLiquidLevel(surfaceM:number,experimental:boolean){surfaceZ=.005+surfaceM*WORLD_PER_METER;coffee.position.z=surfaceZ;plane.constant=-surfaceZ;interior.visible=experimental;originalCup.visible=!experimental;coffeeMaterial.uniforms.volumeMode.value=experimental?1:0;},render(jet:JetState,pouring:boolean,finished=false){
+ setDecorate(value:boolean){decorateView=value;resize();},applyRoom(value:RoomConfig){applySettings(value);},snapshot(){return createPhotoSnapshot(renderer,scene,room);},get renderGpuMs(){return renderGpuMs;},renderGpuTimings(){return renderGpuTimings.slice();},clearTimings(){renderGpuTimings.length=0;},setEnjoy(value:boolean){enjoyView=value;resize();},setFreeSurface(liquid:SurfaceView|undefined){freeLiquid=liquid;coffee.geometry=liquid?freeGeometry:circleGeometry;coffeeMaterial.uniforms.freeSurface.value=liquid?1:0;coffeeMaterial.uniforms.surfacePurity.value=liquid?.useFilm?1:0;coffeeMaterial.uniforms.heightField.value=liquid?.heightTexture??null;},setSpill(ml:number,point:{x:number;y:number}){puddle.visible=ml>.02;const angle=Math.atan2(point.y-.5,point.x-.5);puddle.position.x=Math.cos(angle)*1.42;puddle.position.y=Math.sin(angle)*1.42;puddle.scale.set(Math.min(2.5,.35+Math.sqrt(ml)*.18),Math.min(1.6,.3+Math.sqrt(ml)*.1),1);},setLiquidLevel(surfaceM:number,experimental:boolean){surfaceZ=.005+surfaceM*WORLD_PER_METER;coffeeMaterial.uniforms.meniscusM.value=Math.max(0,Math.min(.00032,-surfaceM*.4));coffee.position.z=surfaceZ;plane.constant=-surfaceZ;interior.visible=experimental;originalCup.visible=!experimental;coffeeMaterial.uniforms.volumeMode.value=experimental?1:0;},render(jet:JetState,pouring:boolean,finished=false){
    const now=performance.now();
    if(cameraTravel&&exploreView){worldCamera.position.lerp(cameraTravel.position,.12);orbit.target.lerp(cameraTravel.target,.12);if(worldCamera.position.distanceTo(cameraTravel.position)<.01)cameraTravel=undefined;}
    if(now-lastShadow>125){renderer.shadowMap.needsUpdate=true;lastShadow=now;}
+   layoutTableTools();
    const point=new T.Vector2(jet.impact.x*WORLD_PER_METER,jet.impact.y*WORLD_PER_METER);
    const landingZ=surfaceZ+jet.impact.z*WORLD_PER_METER;
    marker.position.set(point.x,point.y,landingZ+.02);marker.visible=!finished&&!etching;
@@ -197,8 +221,10 @@ export function createScene(host: HTMLElement) {
        const t=ring/12,p=jetPoint(jet,t),center=new T.Vector3(p.x,p.y,p.z).multiplyScalar(WORLD_PER_METER);center.z+=surfaceZ;
        const down=jet.exitDownMPS+GRAVITY*jet.flightSeconds*t;
        const tangent=new T.Vector3(jet.incoming.x,jet.incoming.y,-down).normalize(),normal=new T.Vector3().crossVectors(tangent,new T.Vector3(0,1,0)).normalize(),binormal=new T.Vector3().crossVectors(tangent,normal).normalize();
-       const radius=Math.sqrt(jet.actualFlowMlS*1e-6/(Math.PI*down))*WORLD_PER_METER;
-       for(let side=0;side<=8;side++){const angle=side/8*Math.PI*2,pos=center.clone().addScaledVector(normal,Math.cos(angle)*radius).addScaledVector(binormal,Math.sin(angle)*radius);const k=(ring*9+side)*3;streamPositions[k]=pos.x;streamPositions[k+1]=pos.y;streamPositions[k+2]=pos.z;}
+       const core=Math.sqrt(jet.actualFlowMlS*1e-6/(Math.PI*down))*WORLD_PER_METER;
+       // Continuous impact flare, tied to the physical radius and flow.
+       const radius=core*(1+.28*Math.pow(t,10));
+       for(let side=0;side<=24;side++){const angle=side/24*Math.PI*2,pos=center.clone().addScaledVector(normal,Math.cos(angle)*radius).addScaledVector(binormal,Math.sin(angle)*radius);const k=(ring*25+side)*3;streamPositions[k]=pos.x;streamPositions[k+1]=pos.y;streamPositions[k+2]=pos.z;}
      }streamGeometry.attributes.position.needsUpdate=true;streamGeometry.computeVertexNormals();
    }
    contact.position.copy(a);contact.scale.setScalar(Math.max(.6,jet.impactRadiusM*WORLD_PER_METER/.026));contact.visible=pouring&&point.length()<.97&&!finished;

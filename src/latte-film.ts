@@ -1,4 +1,5 @@
 import {UV_LENGTH_M,clamp,type JetState} from './jet.ts';
+import {foamToolSettings} from './tool-controls.ts';
 import type {LiquidSource} from './cozy-liquid.ts';
 
 /** Surface milk purity, a passive optical attribute of the two-layer liquid.
@@ -9,31 +10,41 @@ export class LatteFilm {
  response:'legacy'|'local'|'taper'|'fine'='local';
  readonly size:number;readonly white:Float32Array;readonly mask:Uint8Array;
  private forward:Float32Array;private reverse:Float32Array;
- private vx:Float32Array;private vy:Float32Array;
+ private vx:Float32Array;private vy:Float32Array;private localX:Float32Array;private localY:Float32Array;
  private cells:number[]=[];
- constructor(size=160){this.size=size;const count=size*size;this.white=new Float32Array(count);this.mask=new Uint8Array(count);this.forward=new Float32Array(count);this.reverse=new Float32Array(count);this.vx=new Float32Array(count);this.vy=new Float32Array(count);for(let y=0;y<size;y++)for(let x=0;x<size;x++)if(Math.hypot((x+.5)/size-.5,(y+.5)/size-.5)<.485){const i=y*size+x;this.mask[i]=1;this.cells.push(i);}}
+ constructor(size=160){this.size=size;const count=size*size;this.white=new Float32Array(count);this.mask=new Uint8Array(count);this.forward=new Float32Array(count);this.reverse=new Float32Array(count);this.vx=new Float32Array(count);this.vy=new Float32Array(count);this.localX=new Float32Array(count);this.localY=new Float32Array(count);for(let y=0;y<size;y++)for(let x=0;x<size;x++)if(Math.hypot((x+.5)/size-.5,(y+.5)/size-.5)<.485){const i=y*size+x;this.mask[i]=1;this.cells.push(i);}}
  reset(){this.white.fill(0);this.vx.fill(0);this.vy.fill(0);}
  /** A dry tool transports existing surface pigment; it never deposits milk. */
- etch(from:{x:number;y:number},to:{x:number;y:number},tool:'pick'|'spoon'){
+ etch(from:{x:number;y:number},to:{x:number;y:number},tool:'pick'|'spoon',precise=false){
   if(![from.x,from.y,to.x,to.y].every(Number.isFinite))return;
-  const distance=Math.hypot(to.x-from.x,to.y-from.y),radius=tool==='pick'?.018:.048;
+  const distance=Math.hypot(to.x-from.x,to.y-from.y),{radius,strength}=foamToolSettings(tool,precise);
   if(distance<1e-7)return;
   const steps=Math.min(160,Math.ceil(distance/(radius*.35))),n=this.size;
   const dx=(to.x-from.x)/steps,dy=(to.y-from.y)/steps;
   for(let step=1;step<=steps;step++){
    const x=from.x+dx*step,y=from.y+dy*step;if(Math.hypot(x-.5,y-.5)>.47)continue;
+   // Compact support leaves untouched folds exactly intact. Forward/reverse
+   // transport cancels interpolation blur; the donor bounds prevent ringing.
+   const nearby:{i:number;sx:number;sy:number;ox:number;oy:number}[]=[];
    this.forward.set(this.white);
    for(const i of this.cells){const px=(i%n+.5)/n,py=(Math.floor(i/n)+.5)/n,r2=(px-x)**2+(py-y)**2;
-    if(r2>radius*radius*9)continue;
-    const weight=Math.exp(-r2/(2*radius*radius))*.92;
-    const sx=px-dx*weight,sy=py-dy*weight;
-    if(Math.hypot(sx-.5,sy-.5)>=.48)continue;
-    this.white[i]=clamp(this.sample(this.forward,sx*n-.5,sy*n-.5),0,1);
+    if(r2>=radius*radius*9)continue;
+    const edge=1-r2/(radius*radius*9),weight=Math.exp(-r2/(2*radius*radius))*edge*edge*strength;
+    const sx=(px-dx*weight)*n-.5,sy=(py-dy*weight)*n-.5;
+    if(Math.hypot((sx+.5)/n-.5,(sy+.5)/n-.5)>=.48)continue;
+    this.forward[i]=this.sample(this.white,sx,sy);
+    nearby.push({i,sx,sy,ox:(px+dx*weight)*n-.5,oy:(py+dy*weight)*n-.5});
    }
+   for(const {i,sx,sy,ox,oy} of nearby){
+    const a=clamp(Math.floor(sx),0,n-2),b=clamp(Math.floor(sy),0,n-2),j=b*n+a;
+    const lo=Math.min(this.white[j],this.white[j+1],this.white[j+n],this.white[j+n+1]),hi=Math.max(this.white[j],this.white[j+1],this.white[j+n],this.white[j+n+1]);
+    this.reverse[i]=clamp(this.forward[i]+.5*(this.white[i]-this.sample(this.forward,ox,oy)),lo,hi);
+   }
+   for(const {i} of nearby)this.white[i]=this.reverse[i];
   }
  }
  private sample(field:Float32Array,x:number,y:number){const n=this.size;x=clamp(x,0,n-1);y=clamp(y,0,n-1);const a=Math.floor(x),b=Math.floor(y),fx=x-a,fy=y-b;return field[b*n+a]*(1-fx)*(1-fy)+field[b*n+Math.min(a+1,n-1)]*fx*(1-fy)+field[Math.min(b+1,n-1)*n+a]*(1-fx)*fy+field[Math.min(b+1,n-1)*n+Math.min(a+1,n-1)]*fx*fy;}
- step(sources:LiquidSource[],dt:number){
+ step(sources:LiquidSource[],dt:number,flow?:{size:number;u:Float64Array;v:Float64Array}){
   if(dt<=0)return;
   const n=this.size,dx=UV_LENGTH_M/n,skin=.0004;
   const memory=Math.exp(-dt/.035);
@@ -74,8 +85,12 @@ export class LatteFilm {
   }
   // Bounded MacCormack advection retains crema filaments without sharpening
   // to a target silhouette. Dry periods have zero drive and keep resting art.
+  // Advect the same milk attribute with the coupled surface; thick foam
+  // resists motion. Remove this component after transport, not into memory.
+  const localX=flow?this.localX:undefined,localY=flow?this.localY:undefined;if(localX&&localY){localX.set(this.vx);localY.set(this.vy);}
+  if(flow)for(const i of this.cells){const j=Math.min(flow.size-1,Math.floor((Math.floor(i/n)+.5)/n*flow.size))*flow.size+Math.min(flow.size-1,Math.floor((i%n+.5)/n*flow.size));const mobility=.35/(1+this.white[i]*3);this.vx[i]+=flow.u[j]*mobility;this.vy[i]+=flow.v[j]*mobility;}
   let peak=0;for(const i of this.cells)peak=Math.max(peak,Math.hypot(this.vx[i],this.vy[i]));
-  if(peak<1e-7&&sources.every(s=>s.jet.volumeMl<=0))return;
+  if(peak<1e-7&&sources.every(s=>s.jet.volumeMl<=0)){if(localX&&localY){this.vx.set(localX);this.vy.set(localY);}return;}
   const steps=Math.max(1,Math.ceil(peak*dt/dx/.75)),sub=dt/steps;
   for(let k=0;k<steps;k++){
    for(const i of this.cells){const x=i%n,y=Math.floor(i/n);this.forward[i]=this.sample(this.white,x-this.vx[i]*sub/dx,y-this.vy[i]*sub/dx);}
@@ -84,6 +99,7 @@ export class LatteFilm {
    this.white.set(this.reverse);
    for(const {x,y,jet} of sources)this.deposit(x,y,jet,1/steps,skin);
   }
+  if(localX&&localY){this.vx.set(localX);this.vy.set(localY);}
  }
  private deposit(x:number,y:number,jet:JetState,fraction:number,skin:number){
   if(jet.volumeMl<=0||Math.hypot(x-.5,y-.5)>=.485)return;

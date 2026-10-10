@@ -3,14 +3,16 @@ import {UV_LENGTH_M,solveJet,type JetState} from './jet';
 import {CupVolume,inCup,foamFraction} from './volume';
 import type {SurfaceInput} from './surface';
 import {LatteFilm} from './latte-film';
+import {MovingSurface} from './moving-surface';
 export const VOLUME_ART_VERSION='gpu-volume-film-2';
-export const VOLUME_TAPER_VERSION='gpu-volume-film-3';
+export const VOLUME_TAPER_VERSION='gpu-volume-film-4';
 
 const N=32,Z=20,S=256,ITERATIONS=24;
 const vertex=`varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}`;
 const common=`
 varying vec2 vUv;
-uniform sampler2D stateTex,pressureTex,divTex,foamTex,totalsTex;
+uniform sampler2D stateTex,pressureTex,divTex,foamTex,totalsTex,movingTex;
+uniform float movingEnabled;
 uniform float dt,depth,meanMilk,cellVolume,activeCells;
 uniform vec4 source[8],impulse[8],foamSource[8];
 uniform int sources;
@@ -41,6 +43,8 @@ const advect=`void main(){vec3 c=cell();if(!inside(c)){gl_FragColor=vec4(0);retu
  lap+=(vel(c+vec3(0,0,1))+vel(c-vec3(0,0,1))-2.*old.xyz)/(hc.z*hc.z);
  a.xyz+=lap*min(.0000015, .12*hc.z*hc.z/max(dt,.000001))*dt;
  a.xyz*=exp(-dt*.35);
+ if(movingEnabled>.5){vec2 uv=(c.xy+.5)/N;float e=1./32.;vec2 slope=vec2(texture2D(movingTex,uv+vec2(e,0)).r-texture2D(movingTex,uv-vec2(e,0)).r,texture2D(movingTex,uv+vec2(0,e)).r-texture2D(movingTex,uv-vec2(0,e)).r)/(2.*e*L);a.xy-=9.81*slope*dt*smoothstep(.55,1.,c.z/Z);}
+
  for(int i=0;i<8;i++){if(i>=sources)break;float w=gaussian(c,source[i]);a.xyz+=impulse[i].xyz*w; a.w+=impulse[i].w*w*(1.-a.w);}
  // Buoyancy of the fixed wet-foam recipe. Hydrostatic gravity is pressure-balanced.
  a.z+=a.w*.18*dt;
@@ -66,6 +70,7 @@ float amount(vec2 uv,vec2 origin,int channel){vec4 f=foam(length(uv-.5)<.485?uv:
 float faceFlux(vec2 a,vec2 b,int axis,int channel){
  if(length(a-.5)>=.485||length(b-.5)>=.485)return 0.;
  vec2 middle=(a+b)*.5;vec2 v=sample3(stateTex,vec3(middle*N-.5,Z-1.)).xy;
+ if(movingEnabled>.5)v+=texture2D(movingTex,middle).gb*.35;
  v/=1.+min(foam(middle).x/.0003,3.)*.18;
  v*=min(1.,.045/max(abs(v.x)+abs(v.y),.000001));
  float speed=axis==0?v.x:v.y;vec2 d=b-a;
@@ -86,13 +91,22 @@ void main(){vec2 uv=vUv;if(length(uv-.5)>.485){gl_FragColor=vec4(0);return;}
 const initFoam=`void main(){gl_FragColor=vec4(0,0,0,length(vUv-.5)<.485?1.:0.);}`;
 const display=`uniform float debug,artFilm;uniform sampler2D filmTex;void main(){vec4 f=texture2D(foamTex,vUv);vec4 b=sample3(stateTex,vec3(vUv*N-.5,Z-1.));float white=artFilm>.5?texture2D(filmTex,vUv).r:1.-exp(-f.x/.00024);gl_FragColor=debug>.5?vec4(.5+b.x*6.,.5+b.y*6.,.5+b.z*6.,1):vec4(f.y,clamp(f.w,0.,2.)*.5,white,1);}`;
 
+const topFlow=`void main(){gl_FragColor=sample3(stateTex,vec3(vUv*N-.5,Z-2.));}`;
 export class Liquid3D {
+ readonly moving=new MovingSurface();movingEnabled=true;
+ private heightData=new Float32Array(32*32*4);
+ readonly heightTexture=new T.DataTexture(this.heightData,32,32,T.RGBAFormat,T.FloatType);
+ private flowTarget:T.WebGLRenderTarget;private flowReadbackMs=0;
+ deterministicSampling=false;private flowPending:Promise<void>|undefined;
+ private generation=0;private disposed=false;
+ async waitForSurfaceSample(){await this.flowPending;}
+
  readonly cup=new CupVolume(); readonly size=S;
  readonly film=new LatteFilm();useFilm=true;
  private filmData=new Float32Array(this.film.size*this.film.size*4);
  private filmTexture=new T.DataTexture(this.filmData,this.film.size,this.film.size,T.RGBAFormat,T.FloatType);
  get fillMl(){return this.cup.fillMl;}
- depthAt(_x:number,_y:number){return this.cup.depthM;}
+ depthAt(x:number,y:number){return this.movingEnabled?this.moving.depthAt(x,y):this.cup.depthM;}
  private scene=new T.Scene();private camera=new T.Camera();private quad=new T.Mesh(new T.PlaneGeometry(2,2));
  private state:[T.WebGLRenderTarget,T.WebGLRenderTarget];private pressure:[T.WebGLRenderTarget,T.WebGLRenderTarget];
  private foam:[T.WebGLRenderTarget,T.WebGLRenderTarget];private div:T.WebGLRenderTarget;private output:T.WebGLRenderTarget;
@@ -108,11 +122,14 @@ export class Liquid3D {
   this.timerExt=gl.getExtension('EXT_disjoint_timer_query_webgl2');
   const target=(w:number,h:number)=>{const t=new T.WebGLRenderTarget(w,h,{type:T.FloatType,format:T.RGBAFormat,minFilter:T.NearestFilter,magFilter:T.NearestFilter,depthBuffer:false,stencilBuffer:false});this.targets.push(t);return t;};
   this.state=[target(N*Z,N),target(N*Z,N)];this.pressure=[target(N*Z,N),target(N*Z,N)];this.foam=[target(S,S),target(S,S)];
+  this.flowTarget=target(N,N);
+  this.heightTexture.minFilter=this.heightTexture.magFilter=gl.getExtension('OES_texture_float_linear')?T.LinearFilter:T.NearestFilter;
   this.div=target(N*Z,N);this.output=target(S,S);
   if(gl.getExtension('OES_texture_float_linear'))this.output.texture.minFilter=this.output.texture.magFilter=T.LinearFilter;
   for(let w=N*Z,h=N;;w=Math.ceil(w/2),h=Math.ceil(h/2)){this.reduction.push(target(w,h));if(w===1&&h===1)break;}
   this.uniforms={stateTex:{value:null},pressureTex:{value:null},divTex:{value:this.div.texture},foamTex:{value:null},totalsTex:{value:null},dt:{value:1/60},depth:{value:this.cup.depthM},meanMilk:{value:0},cellVolume:{value:0},activeCells:{value:0},sources:{value:0},source:{value:Array.from({length:8},()=>new T.Vector4())},impulse:{value:Array.from({length:8},()=>new T.Vector4())},foamSource:{value:Array.from({length:8},()=>new T.Vector4())},inputSize:{value:new T.Vector2()},debug:{value:0}};
-  for(const [key,code] of Object.entries({advect,divergence,pressure,project,reduceFirst,reduce,correct,surface,display,initFoam}))this.materials[key]=new T.ShaderMaterial({uniforms:this.uniforms,vertexShader:vertex,fragmentShader:common+code,depthTest:false,depthWrite:false});
+  this.uniforms.movingTex={value:this.heightTexture};this.uniforms.movingEnabled={value:1};
+  for(const [key,code] of Object.entries({advect,divergence,pressure,project,reduceFirst,reduce,correct,surface,display,initFoam,topFlow}))this.materials[key]=new T.ShaderMaterial({uniforms:this.uniforms,vertexShader:vertex,fragmentShader:common+code,depthTest:false,depthWrite:false});
   this.uniforms.artFilm={value:1};this.uniforms.filmTex={value:this.filmTexture};
   this.scene.add(this.quad);
   try{
@@ -126,6 +143,7 @@ export class Liquid3D {
  private pass(key:string,out:T.WebGLRenderTarget){this.quad.material=this.materials[key];this.renderer.setRenderTarget(out);this.renderer.render(this.scene,this.camera);}
  private swap(pair:[T.WebGLRenderTarget,T.WebGLRenderTarget]){[pair[0],pair[1]]=[pair[1],pair[0]];}
  reset(){
+  this.generation++;this.moving.reset();this.heightData.fill(0);this.heightTexture.needsUpdate=true;this.flowReadbackMs=0;
   this.cup.reset();this.steps=0;this.foamInjectedMl=0;this.snapshotData={};
   this.film.reset();this.filmData.fill(0);this.filmTexture.needsUpdate=true;
   const color=this.renderer.getClearColor(new T.Color()),alpha=this.renderer.getClearAlpha();
@@ -143,7 +161,9 @@ export class Liquid3D {
   }
   // The existing GPU inventory accepts each packet first. The fine surface
   // attribute receives precisely that accepted amount, before bulk coalescing.
-  if(this.useFilm)this.film.step(deposits.map(p=>({x:p.x,y:p.y,jet:{...p.jet,volumeMl:p.accepted}})),parts.reduce((sum,p)=>sum+p.slice.dt,0));
+  const sources=deposits.map(p=>({x:p.x,y:p.y,jet:{...p.jet,volumeMl:p.accepted}})),dt=parts.reduce((sum,p)=>sum+p.slice.dt,0);
+  if(this.movingEnabled){this.moving.step(sources,dt,this.cup.fillMl,this.useFilm?this.film.white:undefined,this.film.size);this.syncHeight();}
+  if(this.useFilm)this.film.step(sources,dt,this.movingEnabled?this.moving:undefined);
   // High-rate coalesced packets can create more than eight quadrature sources.
   // Merge nearest wet samples by volume, never make a segment across a dry gap.
   while(deposits.length>8){
@@ -179,6 +199,7 @@ export class Liquid3D {
   if(ext&&this.queries.length<4){query=gl.createQuery();gl.beginQuery(ext.TIME_ELAPSED_EXT,query!);}
   const oldTarget=this.renderer.getRenderTarget();const shadows=this.renderer.shadowMap.autoUpdate;this.renderer.shadowMap.autoUpdate=false;
   try{
+   this.uniforms.movingEnabled.value=this.movingEnabled?1:0;
    this.configureSources(parts);this.uniforms.dt.value=dt;this.uniforms.depth.value=this.cup.depthM;this.uniforms.meanMilk.value=this.cup.milkMl/this.cup.fillMl;
    this.uniforms.stateTex.value=this.state[0].texture;this.pass('advect',this.state[1]);this.swap(this.state);
    this.uniforms.stateTex.value=this.state[0].texture;this.pass('divergence',this.div);
@@ -187,10 +208,21 @@ export class Liquid3D {
    this.uniforms.stateTex.value=this.state[0].texture;this.pass('reduceFirst',this.reduction[0]);
    for(let i=1;i<this.reduction.length;i++){const prev=this.reduction[i-1];this.uniforms.stateTex.value=prev.texture;this.uniforms.inputSize.value.set(prev.width,prev.height);this.pass('reduce',this.reduction[i]);}
    this.uniforms.totalsTex.value=this.reduction.at(-1)!.texture;this.uniforms.stateTex.value=this.state[0].texture;this.pass('correct',this.state[1]);this.swap(this.state);
-   this.uniforms.stateTex.value=this.state[0].texture;this.uniforms.dt.value=dt/8;
+   this.uniforms.stateTex.value=this.state[0].texture;
+   // Play samples without stalling the GPU. Developer recordings use fixed
+   // synchronous samples for reproducibility; latency is reported explicitly.
+   if(this.movingEnabled&&this.steps%4===0&&!this.flowPending){
+    const begin=performance.now();this.pass('topFlow',this.flowTarget);
+    if(this.deterministicSampling){this.renderer.readRenderTargetPixels(this.flowTarget,0,0,N,N,this.moving.bulk);this.flowReadbackMs=performance.now()-begin;}
+    else {const data=new Float32Array(N*N*4),epoch=this.generation;
+     this.flowPending=this.renderer.readRenderTargetPixelsAsync(this.flowTarget,0,0,N,N,data).then(()=>{if(!this.disposed&&epoch===this.generation&&!this.deterministicSampling){this.moving.bulk.set(data);this.flowReadbackMs=performance.now()-begin;}}).catch(()=>{if(epoch===this.generation)this.moving.bulk.fill(0);}).finally(()=>{this.flowPending=undefined;});
+    }
+   }
+   this.uniforms.dt.value=dt/8;
    for(let i=0;i<8;i++){this.uniforms.foamTex.value=this.foam[0].texture;this.pass('surface',this.foam[1]);this.swap(this.foam);}this.steps++;
   }finally{this.renderer.shadowMap.autoUpdate=shadows;this.renderer.setRenderTarget(oldTarget);if(query){gl.endQuery(ext.TIME_ELAPSED_EXT);this.queries.push(query);}this.cpuMs=performance.now()-start;}
  }
+ private syncHeight(){for(let i=0;i<this.moving.height.length;i++){this.heightData[i*4]=this.moving.height[i];this.heightData[i*4+1]=this.moving.u[i];this.heightData[i*4+2]=this.moving.v[i];this.heightData[i*4+3]=1;}this.heightTexture.needsUpdate=true;}
  sync(mode='milk'){
   if(this.useFilm){for(let i=0;i<this.film.white.length;i++)this.filmData[i*4]=this.film.white[i];this.filmTexture.needsUpdate=true;}
   this.uniforms.artFilm.value=this.useFilm?1:0;
@@ -224,9 +256,9 @@ export class Liquid3D {
   }
   return {...this.metrics(),readbackMs:performance.now()-begin};
  }
- metrics(){return {mode:this.useFilm?(this.film.response==='legacy'?'gpu-volume-film-1':this.film.response==='taper'?VOLUME_TAPER_VERSION:VOLUME_ART_VERSION):'gpu-volume',film:this.useFilm?this.film.metrics():undefined,bulkGrid:`${N}×${N}×${Z}`,surfaceGrid:`${S}²`,pressureIterations:ITERATIONS,simulationHz:60,steps:this.steps,fillMl:this.cup.fillMl,milkMl:this.cup.milkMl,emittedMl:this.cup.emittedMl,outsideMl:this.cup.outsideMl,capacityMl:Math.PI*.04**2*.024*1e6,depthMm:this.cup.depthM*1000,incomingImpulseNs:this.cup.impulseNs,foamInjectedMl:this.foamInjectedMl,cpuSubmitMs:this.cpuMs,gpuSimulationMs:this.gpuMs,...this.snapshotData};}
+ metrics(){return {...this.movingEnabled?this.moving.metrics():{},surfaceFlowReadbackMs:this.flowReadbackMs,surfaceSampling:this.deterministicSampling?'fixed-tick':'asynchronous',movingSurface:this.movingEnabled,mode:this.useFilm?(this.film.response==='legacy'?'gpu-volume-film-1':this.film.response==='taper'?(this.movingEnabled?VOLUME_TAPER_VERSION:'gpu-volume-film-3'):VOLUME_ART_VERSION):'gpu-volume',film:this.useFilm?this.film.metrics():undefined,bulkGrid:`${N}×${N}×${Z}`,surfaceGrid:`${S}²`,pressureIterations:ITERATIONS,simulationHz:60,steps:this.steps,fillMl:this.cup.fillMl,milkMl:this.cup.milkMl,emittedMl:this.cup.emittedMl,outsideMl:this.cup.outsideMl,capacityMl:Math.PI*.04**2*.024*1e6,depthMm:this.cup.depthM*1000,incomingImpulseNs:this.cup.impulseNs,foamInjectedMl:this.foamInjectedMl,cpuSubmitMs:this.cpuMs,gpuSimulationMs:this.gpuMs,...this.snapshotData};}
  capture(){this.inspect();const bulk=new Float32Array(N*N*Z*4),foam=new Float32Array(S*S*4);this.renderer.readRenderTargetPixels(this.state[0],0,0,N*Z,N,bulk);this.renderer.readRenderTargetPixels(this.foam[0],0,0,S,S,foam);return {bulk,foam};}
- dispose(){this.filmTexture.dispose();for(const t of this.targets)t.dispose();for(const m of Object.values(this.materials))m.dispose();this.quad.geometry.dispose();const gl=this.renderer.getContext() as WebGL2RenderingContext;for(const q of this.queries)gl.deleteQuery(q);}
+ dispose(){this.disposed=true;this.generation++;this.heightTexture.dispose();this.filmTexture.dispose();for(const t of this.targets)t.dispose();for(const m of Object.values(this.materials))m.dispose();this.quad.geometry.dispose();const gl=this.renderer.getContext() as WebGL2RenderingContext;for(const q of this.queries)gl.deleteQuery(q);}
 }
 
 
